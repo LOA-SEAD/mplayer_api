@@ -5,21 +5,30 @@
   "scripts": {
     "start": "node -r dotenv/config index"
   },
-  
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "mongo":"^0.1.0",
-    "mongodb":"^3.2.1",
     "color": "^4.2.3",
     "cors": "^2.8.5",
     "dotenv": "^16.0.1",
     "express": "^4.18.1",
     "helmet": "^5.1.1",
+    "mongo": "^0.1.0",
+    "mongodb": "^3.2.1",
     "morgan": "^1.10.0",
     "ws": "^8.8.1"
   },
-  "devDependencies": {},
-  "description": ""
+  "devDependencies": {
+    "@types/mongodb": "^4.0.7"
+  },
+  "description": "API de Suporte ao Desenvolvimento de Jogos Educacionais Multijogador Abertos",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LOA-SEAD/mplayer_api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LOA-SEAD/mplayer_api/issues"
+  },
+  "homepage": "https://github.com/LOA-SEAD/mplayer_api#readme"
 }

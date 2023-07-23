@@ -38,7 +38,7 @@ var msg2 = {
   "nroTotal":[4, 4, 4],
   "nrSorteadas":[2, 2, 2],
 }*/
-const handler= new Handler();
+//const handler= new Handler();
 //handler.handleStart(null,null,msg3);
 /* handler.handleCadastra(null,null,msg1);
 handler.handleEnter(null,null,msg);
