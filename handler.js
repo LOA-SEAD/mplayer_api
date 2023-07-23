@@ -24,6 +24,12 @@ class Handler extends API {
             this.handleStart(wss, ws, msg);
         else if(msg.messageType == 'RESPOSTA_INDIVIDUAL')
             this.handleIndividualMoment(wss,ws,msg); 
+        else if(msg.messageType == 'PEDIR_AJUDA')
+            this.handleAskForHelp(wss,ws,msg); 
+        else if(msg.messageType == 'RESPOSTA_FINAL')
+            this.handleFinalAnswer(wss,ws,msg); 
+        else if(msg.messageType == 'PROXIMA_QUESTAO')
+            this.handleNextQuestion(wss,ws,msg); 
         else if (msg.messageType == 'EXIT')
             this.handleExit(wss, ws, msg);
     }
@@ -57,6 +63,7 @@ class Handler extends API {
                 secret: team.get('password'),
                 sessionId: 23,
                 lider: 0, //atualizar no sorteio
+                used5050:0,
                 members: []
             });
         }
@@ -177,7 +184,7 @@ class Handler extends API {
 
 
         team[1].lider = 1;
-        var a = await team[1].members[0].id; 
+         
 
         await this.db.UpdateTeam(team[1]); //Atualização do campo perguntas
         await this.db.UpdateLeader(team[1]);
@@ -233,15 +240,11 @@ class Handler extends API {
          
         var answers = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.question, fase:msg.fase,idTeam: msg.teamId}, { });
         var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
-       // var counter =  await this.db.findOne("countAnswers", { sessionId: msg.sessionId, idTeam: msg.teamId, question:msg.question, fase:msg.fase }, { });
-        // this.totalAnswers[msg.teamId]++; //Variavel que controla quantas pessoas de cada grupo ja respondeu
-         //console.log(this.totalAnswers[msg.teamId]);
+   
 
         const resposta = msg.answer; 
         var filter = { _id: answers._id };
         var newvalues;
-
-     
 
         if(resposta === "r")
           newvalues = { $set: { r: answers.r +1} };
@@ -256,12 +259,13 @@ class Handler extends API {
         await this.db.UpdateCounter(answers);
         var checkCount = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.question, fase:msg.fase,idTeam: msg.teamId}, { });
         console.log(checkCount.answered);
+        answers = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.question, fase:msg.fase,idTeam: msg.teamId}, { });
         //Quando todos os membros de um time responderem
         console.log(team.members.lenght);
-        if(checkCount.answered == team.members.length){
         var membersWs = team.members.map(item => item.ws_id);
-           var mensagem ={
-           
+        var mensagem;
+        if(checkCount.answered == team.members.length){
+            mensagem ={
             "message_type" :"MOMENTO_GRUPO",
             "teamId": msg.teamId,
             "teamId": team.idTeam,
@@ -275,17 +279,117 @@ class Handler extends API {
             }
 
         }
-        //manda a mensagem para todos os membros do time
-        super.multicast(wss,mensagem,membersWs);
     }
-     else
-       return "Waiting Other members";
-        
+     else{
+          mensagem = "Waiting Other members";
      }
-        answer();
+      //manda a mensagem para todos os membros do time
+      super.multicast(wss,mensagem,membersWs);
+        
+    }
+       answer();
+}
+ 
+    handleAskForHelp(wss,ws,msg){
+        const recuperarTime = async()=>{
+       
+        var session = await this.db.findOne("sessions", { sessionId: msg.sessionId }, {});
+        var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
+        
+        var membersWs = team.members.map(item => item.ws_id);
+
+        var mensagem = {
+            "message_type":"AJUDA_EQUIPE",
+            "teamId": msg.teamId,
+            "sessionId":msg.sessionId,
+            "gameId":msg.gameId,
+            "help": msg.help   
+        };
+
+        if(msg.help === "5050"){
+         if(team.used5050==session.nrHelp5050)
+             mensagem = {
+                "message_type":"AJUDA_EQUIPE",
+                "Número de ajudas esgotado!!": team.used5050
+            }
+         else
+          await this.db.UpdateHelp(team);
+        }
+        super.multicast(wss,mensagem,membersWs); //informa todos os membros do time
+    }
+ 
+    recuperarTime();
+    
+    if(msg.help === "pular")
+       handleNextQuestiion(wss,ws,msg);
+}
+       handleFinalAnswer(wss,ws,msg){
+
+        const findTeam = async()=>{ 
+               
+        var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
+        var membersWs = team.members.map(item => item.ws_id);
+
+       var mensagem = {
+            "message_type":"FINAL_QUESTAO",
+            "teamId":msg.teamId,
+            "sessionId":msg.sessionId,
+            "gameId":msg.gameId,
+            "finalAnswer":msg.finalAnswer,
+            "correct": msg.correct
+            }
+        
+          super.multicast(wss,mensagem,membersWs); //informa todos os membros do time
+       }
+       findTeam();
+    }
+
+    handleNextQuestion(wss,ws,msg){
+        const findTeam = async()=>{ 
+               
+            var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
+            var membersWs = team.members.map(item => item.ws_id);
+    
+           var mensagem = {
+                "message_type":"NOVA_QUESTAO",
+                "teamId":msg.teamId,
+                "sessionId":msg.sessionId,
+                "gameId":msg.gameId,
+                }
+            
+              super.multicast(wss,mensagem,membersWs); //informa todos os membros do time
+           }
+           findTeam();
+    }
+
+    handleNextFase(wss,ws,msg){
+        const findTeam = async()=>{ 
+               
+            var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
+            var membersWs = team.members.map(item => item.ws_id);
+            var newLeader = team[i].members[Math.floor(Math.random() * team[i].members.length)].id;
+            
+            while(newLeader == team.lider){ //não repetir o anterior
+                newLeader = team[i].members[Math.floor(Math.random() * team[i].members.length)].id;
+            }
+            team.lider = newLeader;
+            await this.db.UpdateLeader(team);
+
+           var mensagem = {
+                "message_type":"INICIA_NOVA_FASE",
+                "teamId":msg.teamId,
+                "leaderId":newLeader,
+                "sessionId":msg.sessionId,
+                "gameId":msg.gameId,
+                }
+            
+              super.multicast(wss,mensagem,membersWs); //informa todos os membros do time
+           }
+           findTeam();
     }
 
 }
+
     
 
 

@@ -82,6 +82,11 @@ class DB {
         var newvalues = { $set: { members: time.members} };
         return this.conn.collection("times").updateOne(filter, newvalues);
     }
+    UpdateHelp(time){
+        var filter = { _id: time._id };
+        var newvalues = { $set: { used5050: time.used5050 + 1 } };
+        return this.conn.collection("times").updateOne(filter, newvalues);
+    }
 
     UpdateLeader(time){
         var filter = { idTeam: time.idTeam };
