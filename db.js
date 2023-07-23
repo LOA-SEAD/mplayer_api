@@ -89,6 +89,10 @@ class DB {
         return this.conn.collection("times").updateOne(filter, newvalues);
     }
 
+    UpdateAnswers(filter,newvalues){
+        return this.conn.collection("answers").updateOne(filter, newvalues);
+    }
+
     UpdateQuestions(session){
         var filter = { _id: session._id };
         var newvalues = { $set: { perguntas: session.perguntas} };
@@ -106,9 +110,20 @@ class DB {
         return this.conn.collection("sessions").insertOne(jogo);
     }
     
-    answers(answers){ //Mantem informações gerais sobre o jogo
+    insertAnswers(answers){ 
         return this.conn.collection("answers").insertOne(answers);
     } 
+
+    countAnswers(answers){ 
+        return this.conn.collection("countAnswers").insertOne(answers);
+    } 
+    
+    UpdateCounter(counter){
+        var incrementa = counter.answered +1;
+        var filter = {  _id: counter._id };
+        var newvalues = { $set: { answered: incrementa} };
+        return this.conn.collection("answers").updateOne(filter, newvalues);
+    }
    
     async findGameInfo(time){
         var retorno = await this.conn.collection("sessions").findOne(time).toArray();

@@ -11,6 +11,7 @@ class Handler extends API {
         this.idAndpasswords = [];
         this.teams = [];
         this.db = new DB();
+        this.totalAnswers =[0];
     }
 
     //ENTRAR_SESSAO   ENTER_SESSION
@@ -22,7 +23,7 @@ class Handler extends API {
         else if (msg.messageType == 'COMECAR_JOGO')
             this.handleStart(wss, ws, msg);
         else if(msg.messageType == 'RESPOSTA_INDIVIDUAL')
-            this.handleAnswer(wss,ws,msg); 
+            this.handleIndividualMoment(wss,ws,msg); 
         else if (msg.messageType == 'EXIT')
             this.handleExit(wss, ws, msg);
     }
@@ -132,34 +133,41 @@ class Handler extends API {
     }
 
     handleStart(wss, ws, msg) {
-        console.log("a00");
         var numero;
         var fase = [];
-        var i;
+        var i,j;
         
-        // this.db.answers({
-        //     sessionId: msg.sessionId,
-        //     r:0,
-        //     r1:0,
-        //     r2:0,
-        //     r3:0
-        // });
 
         const findSession = async() => {
 
         var session = await this.db.findOne("sessions", { sessionId: msg.sessionId }, {});
-         
+        var numberTeams =  await this.db.findOne("sessions", { sessionId: msg.sessionId, }, {});
         for (i = 0; i < 3; i++) {
             var S = new Set(); //nao deixa adicionar elementos iguais
             while (S.size < session.questionRaffle[i]) {
                 numero = Math.floor(Math.random() * session.totalQuestion[i] + 1);
                 S.add(numero);
+                //Cria um registro para cada pergunta
+            for(j=0;j<session.nrTeams;j++){
+            //contador de membros do time que responderam
+              this.db.insertAnswers({
+                sessionId: msg.sessionId,
+                fase: i,
+                question: numero,
+                idTeam: j,
+                answered: 0,
+                r:0,
+                r1:0,
+                r2:0,
+                r3:0
+              })
             }
+        }
+
             fase[i] = Array.from(S);
         }
 
         session.perguntas = fase;
-        console.log(session.perguntas);
         await this.db.UpdateQuestions(session); //Atualização do campo perguntas
         
 
@@ -170,12 +178,12 @@ class Handler extends API {
 
         team[1].lider = 1;
         var a = await team[1].members[0].id; 
-        //team[1].push({lider: a});
-        console.log(team[1].lider);
+
         await this.db.UpdateTeam(team[1]); //Atualização do campo perguntas
+        await this.db.UpdateLeader(team[1]);
     //     for(i=0; i<session.nrTeams; i++){
     //       team[i].lider = team[i].members[Math.floor(Math.random() * team[i].members.length)].id;
-    //     //  team[i].idTeam = i;
+    //       await this.db.UpdateLeader(team[1]);
     //       membersWsIds[i] = team[i].members.map(item => item.ws_id);
     //   }
     
@@ -219,10 +227,65 @@ class Handler extends API {
 
     
      
-     handleAnswer(wss,ws,msg){
-          
-     }
+     handleIndividualMoment(wss,ws,msg){
+
+        const answer = async()=>{
+         
+        var answers = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.question, fase:msg.fase,idTeam: msg.teamId}, { });
+        var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
+       // var counter =  await this.db.findOne("countAnswers", { sessionId: msg.sessionId, idTeam: msg.teamId, question:msg.question, fase:msg.fase }, { });
+        // this.totalAnswers[msg.teamId]++; //Variavel que controla quantas pessoas de cada grupo ja respondeu
+         //console.log(this.totalAnswers[msg.teamId]);
+
+        const resposta = msg.answer; 
+        var filter = { _id: answers._id };
+        var newvalues;
+
+     
+
+        if(resposta === "r")
+          newvalues = { $set: { r: answers.r +1} };
+        else if(resposta === "r1")
+           newvalues = { $set: { r1: answers.r1+1} };
+        else if(resposta === "r2")
+           newvalues = { $set: { r2: answers.r2+1} };
+        else if(resposta === "r3")
+           newvalues = { $set: { r3: answers.r3+1} };
+        
+        await this.db.UpdateAnswers(filter,newvalues);
+        await this.db.UpdateCounter(answers);
+        var checkCount = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.question, fase:msg.fase,idTeam: msg.teamId}, { });
+        console.log(checkCount.answered);
+        //Quando todos os membros de um time responderem
+        console.log(team.members.lenght);
+        if(checkCount.answered == team.members.length){
+        var membersWs = team.members.map(item => item.ws_id);
+           var mensagem ={
+           
+            "message_type" :"MOMENTO_GRUPO",
+            "teamId": msg.teamId,
+            "teamId": team.idTeam,
+            "sessionId": msg.sessionId,
+            "gameId":msg.gameId,
+            "answer":{
+                "r": answers.r, 
+                "r2":answers.r1,
+                "r3":answers.r2,
+                "r4":answers.r3
+            }
+
+        }
+        //manda a mensagem para todos os membros do time
+        super.multicast(wss,mensagem,membersWs);
     }
+     else
+       return "Waiting Other members";
+        
+     }
+        answer();
+    }
+
+}
     
 
 
