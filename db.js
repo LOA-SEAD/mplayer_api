@@ -82,6 +82,13 @@ class DB {
         var newvalues = { $set: { members: time.members} };
         return this.conn.collection("times").updateOne(filter, newvalues);
     }
+    
+    UpdateLastLeader(time){
+        var filter = { _id: time._id };
+        var newvalues = { $set: { lastLeaders: time.lastLeaders} };
+        return this.conn.collection("times").updateOne(filter, newvalues);
+    }
+
     UpdateHelp(time){
         var filter = { _id: time._id };
         var newvalues = { $set: { used5050: time.used5050 + 1 } };
@@ -114,6 +121,16 @@ class DB {
     gameInfo(jogo){ //Mantem informações gerais sobre o jogo
         return this.conn.collection("sessions").insertOne(jogo);
     }
+
+    //  getNextSequenceValue(sequenceName){
+
+    //     var sequenceDocument = this.conn.collection("sessions").findAndModify({
+    //        query:{_id: sequenceName },
+    //        update: {$inc:{sequence_value:1}},
+    //        new:true
+    //     });
+    //     return sequenceDocument.sequence_value;
+    //  }
     
     insertAnswers(answers){ 
         return this.conn.collection("answers").insertOne(answers);

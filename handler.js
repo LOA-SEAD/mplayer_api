@@ -3,6 +3,9 @@ const WebSocket = require('ws');
 const API = require('./api');
 const DB = require('./db');
 
+
+
+
 class Handler extends API {
     constructor() {
         super();
@@ -30,6 +33,8 @@ class Handler extends API {
             this.handleFinalAnswer(wss,ws,msg); 
         else if(msg.messageType == 'PROXIMA_QUESTAO')
             this.handleNextQuestion(wss,ws,msg); 
+        else if(msg.messageType == 'PROXIMA_FASE')
+            this.handleNextFase(wss,ws,msg); 
         else if (msg.messageType == 'EXIT')
             this.handleExit(wss, ws, msg);
     }
@@ -64,6 +69,7 @@ class Handler extends API {
                 sessionId: 23,
                 lider: 0, //atualizar no sorteio
                 used5050:0,
+                lastLeaders:[],
                 members: []
             });
         }
@@ -179,55 +185,35 @@ class Handler extends API {
         
 
         var team = await this.db.listTeams({sessionId: msg.sessionId});
-        console.log(team);
-        var membersWsIds;
+        var membersWsIds=[session.nrTeams];
 
 
-        team[1].lider = 1;
-         
-
-        await this.db.UpdateTeam(team[1]); //Atualização do campo perguntas
-        await this.db.UpdateLeader(team[1]);
-    //     for(i=0; i<session.nrTeams; i++){
-    //       team[i].lider = team[i].members[Math.floor(Math.random() * team[i].members.length)].id;
-    //       await this.db.UpdateLeader(team[1]);
-    //       membersWsIds[i] = team[i].members.map(item => item.ws_id);
-    //   }
+        for(i=0; i<session.nrTeams; i++){
+          team[i].lider = team[i].members[Math.floor(Math.random() * team[i].members.length)].id;
+          await this.db.UpdateLeader(team[i]);
+          membersWsIds[i] = team[i].members.map(item => item.ws_id);
+      }
     
-        // for(i=0;i<session.nrTeams;i++){
-        //    await this.db.UpdateLeader(team[i]);
-        //   var mensagem = {
-        //  "messageType":"INICIA_JOGO",
-        //     "totalQuestion":session.totalQuestion,
-        //     "question": {
-        //         "easy":fase[1],
-        //         "medium":fase[2],
-        //         "hard":fase[3]
-        //     },
-        //     "team": team[i].members,
-        //     "timeQuestion":session.timeQuestion,
-        //     "leaderId": team[i].lider,
-        //     "sessionId":session.sessionId,
-        //     "gameId":0
-        //     }
-        //     super.multicast(wss,mensagem,membersWsIds[i]);
-        // }
-
-        var mensagem = {
-            "messageType":"INICIA_JOGO",
+        for(i=0;i<session.nrTeams;i++){
+           await this.db.UpdateLeader(team[i]);
+          var mensagem = {
+         "messageType":"INICIA_JOGO",
             "totalQuestion":session.totalQuestion,
             "question": {
-                "easy":fase[0],
-                "medium":fase[1],
-                "hard":fase[2]
+                "easy":fase[1],
+                "medium":fase[2],
+                "hard":fase[3]
             },
-            "team": team[1].members.name,
+            "team": team[i].members,
             "timeQuestion":session.timeQuestion,
-            "leaderId": team[1].lider,
+            "leaderId": team[i].lider,
             "sessionId":session.sessionId,
             "gameId":0
+            }
+            super.multicast(wss,mensagem,membersWsIds[i]);
         }
-        super.broadcast(wss, mensagem);
+
+      
     }
        findSession();
       }
@@ -366,11 +352,14 @@ class Handler extends API {
         const findTeam = async()=>{ 
                
             var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
+            team.lastLeaders.push(team.lider);
+            await this.db.UpdateLastLeader(team);
             var membersWs = team.members.map(item => item.ws_id);
-            var newLeader = team[i].members[Math.floor(Math.random() * team[i].members.length)].id;
-            
-            while(newLeader == team.lider){ //não repetir o anterior
-                newLeader = team[i].members[Math.floor(Math.random() * team[i].members.length)].id;
+            var newLeader = team.members[Math.floor(Math.random() * team.members.length)].id;
+            team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
+
+            while(team.lastLeaders.includes(newLeader)){ //não repetir o lider
+                newLeader = team.members[Math.floor(Math.random() * team.members.length)].id;
             }
             team.lider = newLeader;
             await this.db.UpdateLeader(team);
