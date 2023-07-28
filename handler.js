@@ -35,8 +35,8 @@ class Handler extends API {
             this.handleNextQuestion(wss,ws,msg); 
         else if(msg.messageType == 'PROXIMA_FASE')
             this.handleNextFase(wss,ws,msg); 
-        else if (msg.messageType == 'EXIT')
-            this.handleExit(wss, ws, msg);
+        //else if (msg.messageType == 'EXIT')
+        //    this.handleExit(wss, ws, msg);
     }
 
     handleCadastra(wss, ws, msg) {
@@ -377,6 +377,9 @@ class Handler extends API {
            findTeam();
     }
 
+    handleExit(wss,ws) {
+        console.log('Handling Exit: ' + ws.id);
+    }
 }
 
     
