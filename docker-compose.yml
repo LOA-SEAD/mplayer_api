@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+  mongodb:
+    env_file:
+      - .env
+    image: tutum/mongodb:3.2
+    container_name: mongodb
+  node:
+    env_file:
+      - .env
+    image: "node:14"
+    container_name: node
+    working_dir: /index
+    volumes:
+      - .:/index
+    ports:
+      - "5000:5000"
+    command: "npm start"
+    depends_on:
+      - mongodb
+    links:
+      - mongodb
+
+networks:
+  default:
+    name: api
+
