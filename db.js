@@ -95,6 +95,12 @@ class DB {
         return this.conn.collection("times").updateOne(filter, newvalues);
     }
 
+    UpdateSkip(time){
+        var filter = { _id: time._id };
+        var newvalues = { $set: { usedSkip: 1 } };
+        return this.conn.collection("times").updateOne(filter, newvalues);
+    }
+
     UpdateLeader(time){
         var filter = { idTeam: time.idTeam };
         var newvalues = { $set: { lider: time.lider} };
@@ -109,6 +115,13 @@ class DB {
         var filter = { _id: session._id };
         var newvalues = { $set: { perguntas: session.perguntas} };
         return this.conn.collection("sessions").updateOne(filter, newvalues);
+    }
+
+    
+    UpdateOrdem(answers){
+        var filter = { _id: answers._id };
+        var newvalues = { $set: { ordemQuestoes: answers.ordemQuestoes} };
+        return this.conn.collection("answers").updateOne(filter, newvalues);
     }
 
     listUsuario(){

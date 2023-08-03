@@ -47,7 +47,7 @@ class Handler extends API {
             nrHelp5050: msg.nrHelp5050,
             timeQuestion: msg.timeQuestion,
             totalQuestion:msg.totalQuestion,
-            questionRaffle:msg.questionRaffle,
+            questionRaffle:msg.questionAmount,
             moderator: msg.moderator,
             sessionId:23,
             perguntas: [] //atualizar depois do sorteio das perguntas
@@ -69,6 +69,7 @@ class Handler extends API {
                 sessionId: 23,
                 lider: 0, //atualizar no sorteio
                 used5050:0,
+                usedSkip:0,
                 lastLeaders:[],
                 members: []
             });
@@ -168,11 +169,12 @@ class Handler extends API {
                 fase: i,
                 question: numero,
                 idTeam: j,
+                ordemQuestoes:[0,1,2,3],
                 answered: 0,
-                r:0,
-                r1:0,
-                r2:0,
-                r3:0
+                A:0,
+                B:0,
+                C:0,
+                D:0
               })
             }
         }
@@ -200,9 +202,9 @@ class Handler extends API {
          "messageType":"INICIA_JOGO",
             "totalQuestion":session.totalQuestion,
             "question": {
-                "easy":fase[1],
-                "medium":fase[2],
-                "hard":fase[3]
+                "easy":fase[0],
+                "medium":fase[1],
+                "hard":fase[2]
             },
             "team": team[i].members,
             "timeQuestion":session.timeQuestion,
@@ -224,28 +226,28 @@ class Handler extends API {
 
         const answer = async()=>{
          
-        var answers = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.question, fase:msg.fase,idTeam: msg.teamId}, { });
+        var answers = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.nrQuestion, fase:msg.level,idTeam: msg.teamId}, { });
         var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
-   
+        console.log(answers);
 
         const resposta = msg.answer; 
         var filter = { _id: answers._id };
         var newvalues;
 
-        if(resposta === "r")
-          newvalues = { $set: { r: answers.r +1} };
-        else if(resposta === "r1")
-           newvalues = { $set: { r1: answers.r1+1} };
-        else if(resposta === "r2")
-           newvalues = { $set: { r2: answers.r2+1} };
-        else if(resposta === "r3")
-           newvalues = { $set: { r3: answers.r3+1} };
+        if(resposta === "A")
+          newvalues = { $set: { A: answers.A +1} };
+        else if(resposta === "B")
+           newvalues = { $set: { B: answers.B+1} };
+        else if(resposta === "C")
+           newvalues = { $set: { C: answers.C+1} };
+        else if(resposta === "D")
+           newvalues = { $set: { D: answers.D+1} };
         
         await this.db.UpdateAnswers(filter,newvalues);
         await this.db.UpdateCounter(answers);
-        var checkCount = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.question, fase:msg.fase,idTeam: msg.teamId}, { });
+        var checkCount = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.nrQuestion, fase:msg.level,idTeam: msg.teamId}, { });
         console.log(checkCount.answered);
-        answers = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.question, fase:msg.fase,idTeam: msg.teamId}, { });
+        answers = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.nrQuestion, fase:msg.level,idTeam: msg.teamId}, { });
         //Quando todos os membros de um time responderem
         console.log(team.members.lenght);
         var membersWs = team.members.map(item => item.ws_id);
@@ -258,10 +260,10 @@ class Handler extends API {
             "sessionId": msg.sessionId,
             "gameId":msg.gameId,
             "answer":{
-                "r": answers.r, 
-                "r2":answers.r1,
-                "r3":answers.r2,
-                "r4":answers.r3
+                "A":answers.A, 
+                "B":answers.B,
+                "C":answers.C,
+                "D":answers.D
             }
 
         }
@@ -282,6 +284,7 @@ class Handler extends API {
         var session = await this.db.findOne("sessions", { sessionId: msg.sessionId }, {});
         var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
         
+   
         var membersWs = team.members.map(item => item.ws_id);
 
         var mensagem = {
@@ -298,18 +301,43 @@ class Handler extends API {
                 "message_type":"AJUDA_EQUIPE",
                 "Número de ajudas esgotado!!": team.used5050
             }
-         else
+         else{
+          var question = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.nrQuestion, fase:msg.level,idTeam: msg.teamId}, { });
           await this.db.UpdateHelp(team);
+          var fifth = [question.ordemQuestoes.indexOf(0),question.ordemQuestoes.indexOf(Math.floor(Math.random() * 3) + 1)];
+          fifth = shuffleArray(fifth);
+          mensagem  = {
+            "message_type":"AJUDA_EQUIPE",
+            "teamId": msg.teamId,
+            "sessionId":msg.sessionId,
+            "gameId":msg.gameId,
+            "help": msg.help,   
+            "alternativa":fifth
+        }
+         }
+
+        }
+        else{
+            if(team.usedSkip>=1){
+            mensagem = {
+               "message_type":"AJUDA_EQUIPE",
+               "Número de pulos!!": 1
+           }
+        }
+        else{
+           await this.db.UpdateSkip(team);
+           this.handleNextQuestion(wss,ws,msg);
+        }
         }
         super.multicast(wss,mensagem,membersWs); //informa todos os membros do time
     }
  
     recuperarTime();
     
-    if(msg.help === "pular")
-       handleNextQuestiion(wss,ws,msg);
+   
 }
-       handleFinalAnswer(wss,ws,msg){
+
+    handleFinalAnswer(wss,ws,msg){
 
         const findTeam = async()=>{ 
                
@@ -332,13 +360,17 @@ class Handler extends API {
 
     handleNextQuestion(wss,ws,msg){
         const findTeam = async()=>{ 
-               
+            
+            var answers = await this.db.findOne("answers", {sessionId: msg.sessionId, question: msg.nrQuestion, fase:msg.level,idTeam: msg.teamId}, { });
+            console.log(answers);
             var team =  await this.db.findOne("times", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
             var membersWs = team.members.map(item => item.ws_id);
-    
-           var mensagem = {
+            answers.ordemQuestoes = shuffleArray(answers.ordemQuestoes);
+            await this.db.UpdateOrdem(answers);
+            var mensagem = {
                 "message_type":"NOVA_QUESTAO",
                 "teamId":msg.teamId,
+                "alernativas":answers.ordemQuestoes,
                 "sessionId":msg.sessionId,
                 "gameId":msg.gameId,
                 }
@@ -380,6 +412,11 @@ class Handler extends API {
 }
 
     
-
-
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
 module.exports = Handler;
