@@ -80,7 +80,8 @@ class Handler extends API {
                     lider: 0, //atualizar no sorteio
                     used5050: 0,
                     lastLeaders: [],
-                    members: [{ id: userId, name: msg.moderator.name, ws_id: ws.id }]
+                    members: [{ id: userId, name: msg.moderator.name, ws_id: ws.id }],
+                    maxSize: msg.nrPlayers + 1
                 });
             }
 
@@ -102,7 +103,6 @@ class Handler extends API {
         var sessionId = parseInt(msg.secret.substring(0, pos));
         var secret = msg.secret.substring(pos + 1);
 
-
         const findIdsAndPasswords = async () => {
 
             console.log("sessionId = " + sessionId);
@@ -115,32 +115,46 @@ class Handler extends API {
                 { secret: 1, _id: 0 });
             console.log(idAndpasswords);
             var index = idAndpasswords.findIndex((elemento) => elemento.secret === secret);
+            
             if (index != -1) {
-                let user = {
-                    "id": userId,
-                    "name": msg.user.name
-                };
-                this.db.insertUsuario(user);
                 var team = await this.db.findOne("times", { secret: secret }, {});
                 console.log(team);
 
-                team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id });
-                var members2 = team.members.map(item => item.ws_id);
-                console.log(members2);
-                this.db.UpdateTeam(team);
+                if (team.members.length < team.maxSize) {
 
-                console.log(team);
+                    let user = {
+                        "id": userId,
+                        "name": msg.user.name
+                    };
+                    this.db.insertUsuario(user);
 
-                var session = await this.db.findOne("sessions", { sessionId: sessionId }, {});
+                    team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id });
+                    var members2 = team.members.map(item => item.ws_id);
+                    console.log(members2);
+                    this.db.UpdateTeam(team);
 
-                var mensagem = {
-                    "messageType": "ENTROU_SESSAO",
-                    "user": { "id": user.id, "name": user.name },
-                    "teamId": team.idTeam,
-                    "sessionId": sessionId,
-                    "gameId": session.gameId
+                    console.log(team);
+
+                    var session = await this.db.findOne("sessions", { sessionId: sessionId }, {});
+
+                    var mensagem = {
+                        "messageType": "ENTROU_SESSAO",
+                        "user": { "id": user.id, "name": user.name },
+                        "teamId": team.idTeam,
+                        "sessionId": sessionId,
+                        "gameId": session.gameId
+                    }
+                    
+                    super.multicast(wss, members2, mensagem);
+
+                } else {
+                    var mensagem = {
+                        "messageType": "ACESSO_INVALIDO",
+                        "reason": "EXCEEDED_MAXIMUM_NUMBER_PARTICIPANTS"
+                    }
+    
+                    super.unicast(wss, ws.id, mensagem);    
                 }
-                super.multicast(wss, members2, mensagem);
             }
             else {
                 var mensagem = {
