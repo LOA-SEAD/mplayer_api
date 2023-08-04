@@ -13,27 +13,27 @@ class API {
         });
     }    
 
-    multicast(wss,obj,ids){
-        console.log('Sending: ' + JSON.stringify(obj));
-        console.log(ids);
-        wss.clients.forEach(client=>{
+    multicast(wss, ids, msg){
+        console.log('Sending: ' + JSON.stringify(msg));
+        var list = Array.from(ids);
+
+        wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                if (ids.includes(client.id))
-                 client.send(JSON.stringify(obj));
+                if (list.includes(client.id))
+                 client.send(JSON.stringify(msg));
             }
         });
     }
     
-    unicast(wss,obj,id){
-        console.log('Sending: ' + JSON.stringify(obj));
-        console.log(ids);
-        wss.clients.forEach(client=>{
+    unicast(wss, id, msg){
+        console.log('Sending: ' + JSON.stringify(msg));
+        console.log(id);
+        wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                if (id==client.id)
-                 client.send(JSON.stringify(obj));
+                if (id == client.id)
+                 client.send(JSON.stringify(msg));
             }
         });
     }
-
 }
 module.exports = API;

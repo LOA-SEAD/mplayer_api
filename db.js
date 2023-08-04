@@ -73,6 +73,23 @@ class DB {
         return result;
     }
 
+    async getNextSequenceValue(sequenceName){
+        
+        var ret = await this.findOne('counters', {_id: sequenceName}, {sequence_value: 1});
+        var value = 1;
+        console.log(ret);
+
+        if (ret == null) {
+            this.conn.collection('counters').insertOne({_id: sequenceName, sequence_value: value});
+        } else {
+            value = ret.sequence_value + 1;
+            const filter = {_id: sequenceName };
+            const newValue = {$set: {sequence_value: value} };
+            this.conn.collection("counters").updateOne(filter, newValue);
+        }
+        return value;
+     }
+
     insertUsuario(usuario) {
         return this.conn.collection("usuario").insertOne(usuario);
     }
@@ -95,6 +112,12 @@ class DB {
         return this.conn.collection("times").updateOne(filter, newvalues);
     }
 
+    UpdateSkip(time){
+        var filter = { _id: time._id };
+        var newvalues = { $set: { usedSkip: 1 } };
+        return this.conn.collection("times").updateOne(filter, newvalues);
+    }
+
     UpdateLeader(time){
         var filter = { idTeam: time.idTeam };
         var newvalues = { $set: { lider: time.lider} };
@@ -111,6 +134,13 @@ class DB {
         return this.conn.collection("sessions").updateOne(filter, newvalues);
     }
 
+    
+    UpdateOrdem(answers){
+        var filter = { _id: answers._id };
+        var newvalues = { $set: { ordemQuestoes: answers.ordemQuestoes} };
+        return this.conn.collection("answers").updateOne(filter, newvalues);
+    }
+
     listUsuario(){
         return this.conn.collection("usuario").find({}).toArray();
     }
@@ -121,16 +151,6 @@ class DB {
     gameInfo(jogo){ //Mantem informações gerais sobre o jogo
         return this.conn.collection("sessions").insertOne(jogo);
     }
-
-    //  getNextSequenceValue(sequenceName){
-
-    //     var sequenceDocument = this.conn.collection("sessions").findAndModify({
-    //        query:{_id: sequenceName },
-    //        update: {$inc:{sequence_value:1}},
-    //        new:true
-    //     });
-    //     return sequenceDocument.sequence_value;
-    //  }
     
     insertAnswers(answers){ 
         return this.conn.collection("answers").insertOne(answers);
