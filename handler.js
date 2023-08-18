@@ -35,7 +35,7 @@ class Handler extends API {
 
       console.log("userId = " + userId);
 
-      let moderator = { id: userId, name: msg.moderator.name };
+      let moderator = { id: userId, name: msg.user.name };
 
       this.db.insertUsuario(moderator);
 
@@ -79,7 +79,7 @@ class Handler extends API {
           lider: 0, //atualizar no sorteio
           used5050: 0,
           lastLeaders: [],
-          members: [{ id: userId, name: msg.moderator.name, ws_id: ws.id }],
+          members: [{ id: userId, name: msg.user.name, ws_id: ws.id }],
           maxSize: msg.nrPlayers + 1,
         });
       }
@@ -234,17 +234,34 @@ class Handler extends API {
           messageType: "INICIA_JOGO",
           totalQuestion: session.totalQuestion,
           question: {
-            easy: fase[1],
-            medium: fase[2],
-            hard: fase[3],
+            easy: fase[0],
+            medium: fase[1],
+            hard: fase[2],
           },
           team: team[i].members,
           timeQuestion: session.timeQuestion,
           leaderId: team[i].lider,
           sessionId: session.sessionId,
-          gameId: 0,
+          gameId: session.gameId,
         };
-        super.multicast(wss, mensagem, membersWsIds[i]);
+        super.multicast(wss, membersWsIds[i], mensagem);
+      }
+
+      for (i = 0; i < session.nrTeams; i++) {
+        var alternativas = new Set(); //nao deixa adicionar elementos iguais
+        while (alternativas.size < 4) {
+          numero = Math.floor(Math.random() * 4);
+          alternativas.add(numero);
+        }
+        var mensagem = {
+          messageType: "NOVA_QUESTAO",
+          alternativas: Array.from(alternativas),
+          teamId: team[i].idTeam,
+          leaderId: team[i].lider,
+          sessionId: session.sessionId,
+          gameId: session.gameId,
+        };
+        super.multicast(wss, membersWsIds[i], mensagem);
       }
     };
     findSession();
@@ -322,7 +339,7 @@ class Handler extends API {
         mensagem = "Waiting Other members";
       }
       //manda a mensagem para todos os membros do time
-      super.multicast(wss, mensagem, membersWs);
+      super.multicast(wss, membersWs, mensagem);
     };
     answer();
   }
@@ -358,7 +375,7 @@ class Handler extends API {
           };
         else await this.db.UpdateHelp(team);
       }
-      super.multicast(wss, mensagem, membersWs); //informa todos os membros do time
+      super.multicast(wss, membersWs, mensagem); //informa todos os membros do time
     };
 
     recuperarTime();
@@ -404,7 +421,7 @@ class Handler extends API {
         gameId: msg.gameId,
       };
 
-      super.multicast(wss, mensagem, membersWs); //informa todos os membros do time
+      super.multicast(wss, membersWs, mensagem); //informa todos os membros do time
     };
     findTeam();
   }
