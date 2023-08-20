@@ -106,6 +106,30 @@ class DB {
         return this.conn.collection("times").updateOne(filter, newvalues);
     }
 
+    UpdateEndCounter(time){
+        var filter = { _id: time._id };
+        var newvalues = { $set: {endedGame: time.endedGame+1} };
+        return this.conn.collection("times").updateOne(filter, newvalues);
+    }
+    
+    UpdateTeamScore(time){
+        var filter = { _id: time._id };
+        var newvalues = { $set: { grpScore: time.grpScore} };
+        return this.conn.collection("times").updateOne(filter, newvalues);
+    }
+
+    // UpdateIndScore(time,index){
+    //     var filter = { _id: time._id };
+    //     var newvalues = { $set: { members[index].indScore: time.indScore} };
+    //     return this.conn.collection("times").updateOne(filter, newvalues);
+    // }
+
+    UpdateUserScore(user){
+        var filter = { _id: user._id };
+        var newvalues = { $set: { indScore: user.indScore} };
+        return this.conn.collection("usuario").updateOne(filter, newvalues);
+    }
+
     UpdateHelp(time){
         var filter = { _id: time._id };
         var newvalues = { $set: { used5050: time.used5050 + 1 } };
