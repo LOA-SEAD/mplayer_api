@@ -89,134 +89,18 @@ class DB {
         }
         return value;
      }
-
-    insertUsuario(usuario) {
-        return this.conn.collection("usuario").insertOne(usuario);
-    }
-
-    UpdateTeam(time){
-        var filter = { _id: time._id };
-        var newvalues = { $set: { members: time.members} };
-        return this.conn.collection("times").updateOne(filter, newvalues);
-    }
-    
-    UpdateLastLeader(time){
-        var filter = { _id: time._id };
-        var newvalues = { $set: { lastLeaders: time.lastLeaders} };
-        return this.conn.collection("times").updateOne(filter, newvalues);
-    }
-
-    UpdateEndCounter(time){
-        var filter = { _id: time._id };
-        var newvalues = { $set: {endedGame: time.endedGame+1} };
-        return this.conn.collection("times").updateOne(filter, newvalues);
-    }
-    
-    UpdateTeamScore(time){
-        var filter = { _id: time._id };
-        var newvalues = { $set: { grpScore: time.grpScore} };
-        return this.conn.collection("times").updateOne(filter, newvalues);
-    }
-
-    // UpdateIndScore(time,index){
-    //     var filter = { _id: time._id };
-    //     var newvalues = { $set: { members[index].indScore: time.indScore} };
-    //     return this.conn.collection("times").updateOne(filter, newvalues);
-    // }
-
-    UpdateUserScore(user){
-        var filter = { _id: user._id };
-        var newvalues = { $set: { indScore: user.indScore} };
-        return this.conn.collection("usuario").updateOne(filter, newvalues);
-    }
-
-    UpdateHelp(time){
-        var filter = { _id: time._id };
-        var newvalues = { $set: { used5050: time.used5050 + 1 } };
-        return this.conn.collection("times").updateOne(filter, newvalues);
-    }
-
-    UpdateSkip(time){
-        var filter = { _id: time._id };
-        var newvalues = { $set: { usedSkip: 1 } };
-        return this.conn.collection("times").updateOne(filter, newvalues);
-    }
-
-    UpdateLeader(time){
-        var filter = { idTeam: time.idTeam };
-        var newvalues = { $set: { lider: time.lider} };
-        return this.conn.collection("times").updateOne(filter, newvalues);
-    }
-
-    UpdateAnswers(filter,newvalues){
-        return this.conn.collection("answers").updateOne(filter, newvalues);
-    }
-
-    UpdateQuestions(session){
-        var filter = { _id: session._id };
-        var newvalues = { $set: { perguntas: session.perguntas} };
-        return this.conn.collection("sessions").updateOne(filter, newvalues);
-    }
-
-    
-    UpdateOrdem(answers){
-        var filter = { _id: answers._id };
-        var newvalues = { $set: { ordemQuestoes: answers.ordemQuestoes} };
-        return this.conn.collection("answers").updateOne(filter, newvalues);
-    }
-
-    listUsuario(){
-        return this.conn.collection("usuario").find({}).toArray();
-    }
-    
-    listTeams(sessao){
-        return this.conn.collection("times").find(sessao).toArray();
-    }
-    gameInfo(jogo){ //Mantem informações gerais sobre o jogo
-        return this.conn.collection("sessions").insertOne(jogo);
-    }
-    
-    insertAnswers(answers){ 
-        return this.conn.collection("answers").insertOne(answers);
-    } 
-
-    countAnswers(answers){ 
-        return this.conn.collection("countAnswers").insertOne(answers);
-    } 
-    
-    UpdateCounter(counter){
-        var incrementa = counter.answered +1;
-        var filter = {  _id: counter._id };
-        var newvalues = { $set: { answered: incrementa} };
-        return this.conn.collection("answers").updateOne(filter, newvalues);
-    }
-   
-    async findGameInfo(time){
-        var retorno = await this.conn.collection("sessions").findOne(time).toArray();
-        return retorno;
-    }
     async updateOne(collection,filter,update){
         const retorno = await this.conn.collection(collection).updateOne(filter, update);
         return retorno;
     }
-
-    findSessions(session){
-        return this.conn.collection("sessions").findOne(session);
-    }
-     
-    
-    insertTeam(time){
-        return this.conn.collection("times").insertOne(time);
+    insert(collectionName, object) {
+        return this.conn.collection(collectionName).insertOne(object);
     }
     
-    // listTeam(Sid){
-    //     return this.conn.collection("times").find({}, sessionId: Sid,{}).toArray();
-    // }
-
-    async findTeam(time){
-        var retorno = await this.conn.collection("times").findOne(time).toArray();
-        return retorno;
+    list(collectionName, filter) {
+        return this.conn.collection(collectionName).find(filter).toArray();
     }
+
 }
 
 module.exports = DB;
