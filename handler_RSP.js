@@ -1,8 +1,8 @@
 const WebSocket = require("ws");
-const API = require("./handler");
+const Handler = require("./handler");
 const DB_RSP = require("./db_RSP");
 
-class Handler extends API {
+class Handler_RSP extends Handler {
   constructor() {
     super();
     this.connections_id = [];
@@ -83,7 +83,7 @@ class Handler extends API {
           lider: 0, //atualizar no sorteio
           used5050: 0,
           lastLeaders: [],
-          members: [{ id: userId, name: msg.user.name, ws_id: ws.id, indScore:0 }],
+          members: [{ id: userId, name: msg.user.name, ws_id: ws.id, moderator: true }],
           maxSize: msg.nrPlayers + 1,
           grpScore:0,
           gameTime:0,
@@ -130,7 +130,7 @@ class Handler extends API {
         var team = await this.db.findOne("time", { secret: secret }, {});
         console.log(team);
 
-        if (team.members.length < team.maxSize) {
+        if (team.members.length < team.maxSize + 1) { // +1 => o moderador faz parte do time
           let user = {
             id: userId,
             name: msg.user.name,
@@ -139,7 +139,7 @@ class Handler extends API {
           };
           this.db.insertUsuario(user);
 
-          team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id });
+          team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id, indScore: 0 });
           var members2 = team.members.map((item) => item.ws_id);
           console.log(members2);
           this.db.updateTeam(team);
@@ -200,7 +200,7 @@ class Handler extends API {
       );
       for (i = 0; i < 3; i++) {
         var S = new Set(); //nao deixa adicionar elementos iguais
-        while (S.size < session.questionRaffle[i]) {
+        while (S.size < session.questionRaffle[i] + 1) { // +1 => opção "pular"
           numero = Math.floor(Math.random() * session.totalQuestion[i] + 1);
           S.add(numero);
           //Cria um registro para cada pergunta
@@ -231,48 +231,57 @@ class Handler extends API {
       var membersWsIds = [session.nrTeams];
 
       for (i = 0; i < session.nrTeams; i++) {
-        team[i].lider =
-          team[i].members[
-            Math.floor(Math.random() * team[i].members.length)
-          ].id;
-        await this.db.updateLeader(team[i]);
-        membersWsIds[i] = team[i].members.map((item) => item.ws_id);
-      }
 
-      for (i = 0; i < session.nrTeams; i++) {
-        await this.db.updateLeader(team[i]);
-        var mensagem = {
-          messageType: "INICIA_JOGO",
-          totalQuestion: session.totalQuestion,
-          question: {
-            easy: fase[0],
-            medium: fase[1],
-            hard: fase[2],
-          },
-          team: team[i].members,
-          timeQuestion: session.timeQuestion,
-          leaderId: team[i].lider,
-          sessionId: session.sessionId,
-          gameId: session.gameId,
-        };
-        super.multicast(wss, membersWsIds[i], mensagem);
-      }
+        if (team[i].members.length > 1) { // apenas se houver membros (o moderador é desconsiderado)
+          
+          // Math.floor(Math.random() * (team[i].members.length - 1)) + 1
+          // Moderador faz parte do time => necessário removê-lo da lista de lideres
+          
+          var index = Math.floor(Math.random() * (team[i].members.length - 1));
+          console.log("index = " + index);
+          
+          team[i].lider =
+            team[i].members[
+              index + 1
+            ].id;
 
-      for (i = 0; i < session.nrTeams; i++) {
-        var alternativas = new Set(); //nao deixa adicionar elementos iguais
-        while (alternativas.size < 4) {
-          numero = Math.floor(Math.random() * 4);
-          alternativas.add(numero);
+          await this.db.updateLeader(team[i]);
+          membersWsIds[i] = team[i].members.map((item) => item.ws_id);
+          var mensagem = {
+            messageType: "INICIA_JOGO",
+            totalQuestion: session.totalQuestion,
+            question: {
+              easy: fase[0],
+              medium: fase[1],
+              hard: fase[2],
+            },
+            team: team[i].members,
+            timeQuestion: session.timeQuestion,
+            leaderId: team[i].lider,
+            sessionId: session.sessionId,
+            gameId: session.gameId,
+          };
+          super.multicast(wss, membersWsIds[i], mensagem);
         }
-        var mensagem = {
-          messageType: "NOVA_QUESTAO",
-          alternativas: Array.from(alternativas),
-          teamId: team[i].idTeam,
-          leaderId: team[i].lider,
-          sessionId: session.sessionId,
-          gameId: session.gameId,
-        };
-        super.multicast(wss, membersWsIds[i], mensagem);
+      }
+
+      for (i = 0; i < session.nrTeams; i++) {
+        if (team[i].members.length > 1) { // apenas se houver membros (o moderador é desconsiderado)
+          var alternativas = new Set(); // nao deixa adicionar elementos iguais
+          while (alternativas.size < 4) {
+            numero = Math.floor(Math.random() * 4);
+            alternativas.add(numero);
+          }
+          var mensagem = {
+            messageType: "NOVA_QUESTAO",
+            alternativas: Array.from(alternativas),
+            teamId: team[i].idTeam,
+            leaderId: team[i].lider,
+            sessionId: session.sessionId,
+            gameId: session.gameId,
+          };
+          super.multicast(wss, membersWsIds[i], mensagem);
+        }
       }
     };
     findSession();
@@ -538,4 +547,4 @@ function shuffleArray(array) {
   return array;
 }
 
-module.exports = Handler;
+module.exports = Handler_RSP;

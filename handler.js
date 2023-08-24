@@ -1,6 +1,6 @@
 const WebSocket = require('ws');
 
-class API {
+class Handler {
     constructor(){
     }
 
@@ -36,4 +36,4 @@ class API {
         });
     }
 }
-module.exports = API;
+module.exports = Handler;
