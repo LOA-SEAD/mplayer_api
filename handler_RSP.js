@@ -14,12 +14,12 @@ class Handler_RSP extends Handler {
   }
 
   handleMsg(wss, ws, msg) {
-    if (msg.messageType == "ENTRAR_SESSAO") 
-    this.handleEnterTeam(wss, ws, msg);
+    if (msg.messageType == "ENTRAR_SESSAO")
+      this.handleEnterTeam(wss, ws, msg);
     else if (msg.messageType == "CADASTRAR_SESSAO")
       this.handleCadastra(wss, ws, msg);
-    else if (msg.messageType == "COMECAR_JOGO") 
-    this.handleStart(wss, ws, msg);
+    else if (msg.messageType == "COMECAR_JOGO")
+      this.handleStart(wss, ws, msg);
     else if (msg.messageType == "RESPOSTA_INDIVIDUAL")
       this.handleIndividualMoment(wss, ws, msg);
     else if (msg.messageType == "PEDIR_AJUDA")
@@ -36,15 +36,11 @@ class Handler_RSP extends Handler {
     const cadastra = async () => {
       var userId = await this.db.getNextSequenceValue("usuarios");
 
-      console.log("userId = " + userId);
-
       let moderator = { id: userId, name: msg.user.name };
 
       this.db.insertUsuario(moderator);
 
       var sessionId = await this.db.getNextSequenceValue("sessoes");
-
-      console.log("sessionId = " + sessionId);
 
       this.db.gameInfo({
         gameId: msg.gameId,
@@ -56,7 +52,7 @@ class Handler_RSP extends Handler {
         questionRaffle: msg.questionAmount,
         moderator: moderator,
         sessionId: sessionId,
-        endedGame:0,
+        endedGame: 0,
         perguntas: [], //atualizar depois do sorteio das perguntas
       });
 
@@ -85,10 +81,10 @@ class Handler_RSP extends Handler {
           lastLeaders: [],
           members: [{ id: userId, name: msg.user.name, ws_id: ws.id, moderator: true }],
           maxSize: msg.nrPlayers + 1,
-          grpScore:0,
-          gameTime:0,
-          endedGame:0,
-          interaction:0
+          grpScore: 0,
+          gameTime: 0,
+          endedGame: 0,
+          interaction: 0
         });
       }
 
@@ -111,9 +107,7 @@ class Handler_RSP extends Handler {
     var secret = msg.secret.substring(pos + 1);
 
     const findIdsAndPasswords = async () => {
-      console.log("sessionId = " + sessionId);
-      console.log("senha = " + secret);
-
+      
       var userId = await this.db.getNextSequenceValue("usuarios");
 
       var idAndpasswords = await this.db.find(
@@ -121,30 +115,27 @@ class Handler_RSP extends Handler {
         { sessionId: sessionId },
         { secret: 1, _id: 0 }
       );
-      console.log(idAndpasswords);
+      
       var index = idAndpasswords.findIndex(
         (elemento) => elemento.secret === secret
       );
 
       if (index != -1) {
         var team = await this.db.findOne("time", { secret: secret }, {});
-        console.log(team);
 
         if (team.members.length < team.maxSize + 1) { // +1 => o moderador faz parte do time
           let user = {
             id: userId,
             name: msg.user.name,
-            indScore:0,
-            sessionId:sessionId
+            indScore: 0,
+            sessionId: sessionId
           };
           this.db.insertUsuario(user);
 
           team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id, indScore: 0 });
           var members2 = team.members.map((item) => item.ws_id);
-          console.log(members2);
+          
           this.db.updateTeam(team);
-
-          console.log(team);
 
           var session = await this.db.findOne(
             "sessao",
@@ -211,12 +202,12 @@ class Handler_RSP extends Handler {
               fase: i,
               question: numero,
               idTeam: j,
-              ordemQuestoes:[0,1,2,3],
+              ordemQuestoes: [0, 1, 2, 3],
               answered: 0,
-              A:0,
-              B:0,
-              C:0,
-              D:0
+              A: 0,
+              B: 0,
+              C: 0,
+              D: 0
             })
           }
         }
@@ -233,19 +224,21 @@ class Handler_RSP extends Handler {
       for (i = 0; i < session.nrTeams; i++) {
 
         if (team[i].members.length > 1) { // apenas se houver membros (o moderador é desconsiderado)
-          
+
+          await this.#newLeader(team[i]);
+
           // Math.floor(Math.random() * (team[i].members.length - 1)) + 1
           // Moderador faz parte do time => necessário removê-lo da lista de lideres
-          
-          var index = Math.floor(Math.random() * (team[i].members.length - 1));
-          console.log("index = " + index);
-          
-          team[i].lider =
-            team[i].members[
-              index + 1
-            ].id;
 
-          await this.db.updateLeader(team[i]);
+          //var index = Math.floor(Math.random() * (team[i].members.length - 1));
+
+          //team[i].lider =
+          //  team[i].members[
+          //    index + 1
+          //  ].id;
+
+          //await this.db.updateLeader(team[i]);
+
           membersWsIds[i] = team[i].members.map((item) => item.ws_id);
           var mensagem = {
             messageType: "INICIA_JOGO",
@@ -326,7 +319,7 @@ class Handler_RSP extends Handler {
         },
         {}
       );
-      console.log(checkCount.answered);
+      
       answers = await this.db.findOne(
         "resposta",
         {
@@ -337,13 +330,15 @@ class Handler_RSP extends Handler {
         },
         {}
       );
-      //Quando todos os membros de um time responderem
-      console.log(team.members.lenght);
+      
       let membersWs = team.members.map((item) => item.ws_id);
       let mensagem;
+      
+      //Quando todos os membros de um time responderem
+
       if (checkCount.answered == (team.members.length - 1)) {
         mensagem = {
-          message_type: "MOMENTO_GRUPO",
+          messageType: "MOMENTO_GRUPO",
           teamId: msg.teamId,
           teamId: team.idTeam,
           sessionId: msg.sessionId,
@@ -356,7 +351,9 @@ class Handler_RSP extends Handler {
           },
         };
       } else {
-        mensagem = "Waiting Other members";
+        mensagem = {
+          messageType: "ESPERANDO_MEMBROS"
+        };
       }
       //manda a mensagem para todos os membros do time
       super.multicast(wss, membersWs, mensagem);
@@ -380,7 +377,7 @@ class Handler_RSP extends Handler {
       var membersWs = team.members.map((item) => item.ws_id);
 
       var mensagem = {
-        message_type: "AJUDA_EQUIPE",
+        messageType: "AJUDA_EQUIPE",
         teamId: msg.teamId,
         sessionId: msg.sessionId,
         gameId: msg.gameId,
@@ -388,48 +385,49 @@ class Handler_RSP extends Handler {
       };
 
       if (msg.help === "5050") {
-        if (team.used5050 == session.nrHelp5050){
+        if (team.used5050 == session.nrHelp5050) {
           mensagem = {
-            message_type: "AJUDA_EQUIPE",
+            messageType: "AJUDA_EQUIPE",
             "Número de ajudas esgotado!!": team.used5050,
           };
         }
-         else {
-          var question = await this.db.findOne("resposta", {sessionId: msg.sessionId, question: msg.nrQuestion, fase:msg.level,idTeam: msg.teamId}, { });
+        else {
+          var question = await this.db.findOne("resposta", { sessionId: msg.sessionId, question: msg.nrQuestion, fase: msg.level, idTeam: msg.teamId }, {});
           await this.db.updateHelp(team);
-          var fifth = [question.ordemQuestoes.indexOf(0),question.ordemQuestoes.indexOf(Math.floor(Math.random() * 3) + 1)];
-          fifth = shuffleArray(fifth);
-          mensagem  = {
-            "message_type":"AJUDA_EQUIPE",
-            "teamId": msg.teamId,
-            "sessionId":msg.sessionId,
-            "gameId":msg.gameId,
-            "help": msg.help,   
-            "alternativa":fifth
-        }
-        }
-      }
-      else{
-          if(team.usedSkip>=1){
+          var fifth = [question.ordemQuestoes.indexOf(0), question.ordemQuestoes.indexOf(Math.floor(Math.random() * 3) + 1)];
+          fifth = this.#shuffleArray(fifth);
           mensagem = {
-             "message_type":"AJUDA_EQUIPE",
-             "Número de pulos!!": 1
-         }
+            "messageType": "AJUDA_EQUIPE",
+            "teamId": msg.teamId,
+            "sessionId": msg.sessionId,
+            "gameId": msg.gameId,
+            "help": msg.help,
+            "alternativa": fifth
+          }
+        }
       }
-       else{
-         await this.db.updateSkip(team);
-         this.handleNextQuestion(wss,ws,msg);
+      else {
+        if (team.usedSkip >= 1) {
+          mensagem = {
+            "messageType": "AJUDA_EQUIPE",
+            "Número de pulos !!": 1
+          }
+        }
+        else {
+          await this.db.updateSkip(team);
+          this.handleNextQuestion(wss, ws, msg);
+        }
       }
-      }
-        
+
       super.multicast(wss, membersWs, mensagem); //informa todos os membros do time
     };
 
     recuperarTime();
   }
-  
+
   handleFinalAnswer(wss, ws, msg) {
     const findTeam = async () => {
+
       var team = await this.db.findOne(
         "time",
         { sessionId: msg.sessionId, idTeam: msg.teamId },
@@ -438,7 +436,7 @@ class Handler_RSP extends Handler {
       var membersWs = team.members.map((item) => item.ws_id);
 
       var mensagem = {
-        message_type: "FINAL_QUESTAO",
+        messageType: "FINAL_QUESTAO",
         teamId: msg.teamId,
         sessionId: msg.sessionId,
         gameId: msg.gameId,
@@ -452,25 +450,24 @@ class Handler_RSP extends Handler {
   }
 
   handleNextQuestion(wss, ws, msg) {
-    const findTeam = async()=>{ 
-            
-      var answers = await this.db.findOne("resposta", {sessionId: msg.sessionId, question: msg.nrQuestion, fase:msg.level,idTeam: msg.teamId}, { });
-      console.log(answers);
-      var team =  await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, { });
+    const findTeam = async () => {
+
+      var answers = await this.db.findOne("resposta", { sessionId: msg.sessionId, question: msg.nrQuestion, fase: msg.level, idTeam: msg.teamId }, {});
+      var team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
       var membersWs = team.members.map(item => item.ws_id);
-      answers.ordemQuestoes = shuffleArray(answers.ordemQuestoes);
+      answers.ordemQuestoes = this.#shuffleArray(answers.ordemQuestoes);
       await this.db.updateOrdem(answers);
       var mensagem = {
-          "message_type":"NOVA_QUESTAO",
-          "teamId":msg.teamId,
-          "alernativas":answers.ordemQuestoes,
-          "sessionId":msg.sessionId,
-          "gameId":msg.gameId,
-          }
-      
-        super.multicast(wss,membersWs,mensagem); //informa todos os membros do time
-     };
-     findTeam();
+        "messageType": "NOVA_QUESTAO",
+        "teamId": msg.teamId,
+        "alternativas": answers.ordemQuestoes,
+        "sessionId": msg.sessionId,
+        "gameId": msg.gameId,
+      }
+
+      super.multicast(wss, membersWs, mensagem); //informa todos os membros do time
+    };
+    findTeam();
   }
 
   handleNextFase(wss, ws, msg) {
@@ -480,29 +477,21 @@ class Handler_RSP extends Handler {
         { sessionId: msg.sessionId, idTeam: msg.teamId },
         {}
       );
-      team.lastLeaders.push(team.lider);
-      await this.db.updateLastLeader(team);
+
       var membersWs = team.members.map((item) => item.ws_id);
-      var newLeader =
-        team.members[Math.floor(Math.random() * team.members.length)].id;
+
       team = await this.db.findOne(
         "time",
         { sessionId: msg.sessionId, idTeam: msg.teamId },
         {}
       );
 
-      while (team.lastLeaders.includes(newLeader)) {
-        //não repetir o lider
-        newLeader =
-          team.members[Math.floor(Math.random() * team.members.length)].id;
-      }
-      team.lider = newLeader;
-      await this.db.updateLeader(team);
+      await this.#newLeader(team);
 
       var mensagem = {
-        message_type: "INICIA_NOVA_FASE",
+        messageType: "INICIA_NOVA_FASE",
         teamId: msg.teamId,
-        leaderId: newLeader,
+        leaderId: team.lider,
         sessionId: msg.sessionId,
         gameId: msg.gameId,
       };
@@ -516,35 +505,63 @@ class Handler_RSP extends Handler {
     console.log("Handling Exit: " + ws.id);
   }
 
-  handleEndGame(wss,ws,msg){
-    const updateScore = async()=>{
-      const team = await this.db.findOne("time",{ sessionId: msg.sessionId, idTeam: msg.teamId },{});
-      team.grpScore = msg.grpScore; 
+  handleEndGame(wss, ws, msg) {
+    const updateScore = async () => {
+      const team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
+      team.grpScore = msg.grpScore;
       // const index = team.members.id.indexOf(msg.id) ;
       await this.db.updateTeamScore(team);
       // await this.db.UpdateIndScore(team,index);
-      const user = await this.db.findOne("usuario",{ sessionId: msg.sessionId, id: msg.userId },{});
+      const user = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.userId }, {});
       user.indScore = msg.indScore;
       await this.db.updateUserScore(user);
       await this.db.updateEndCounter(team);
       //Time com valores atualizados
-      team = await this.db.findOne("time",{ sessionId: msg.sessionId, idTeam: msg.teamId },{}); 
-      if(team.endedGame == (team.members.length - 1)){
+      team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
+      if (team.endedGame == (team.members.length - 1)) {
 
       }
     }
     updateScore();
   }
-  
-}
-   
 
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+  // Métodos privados
+
+  #shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
   }
-  return array;
+
+  async #newLeader(team) {
+
+    if (team.lider != 0) {
+      team.lastLeaders.push(team.lider);
+
+      if (team.lastLeaders.length == team.members.length - 1) {
+        // todos membros foram lideres
+        team.lastLeaders = []
+      }
+
+      await this.db.updateLastLeader(team);
+    }
+
+    var newLeader;
+
+    // não repetir o lider
+
+    do {
+      // Math.floor(Math.random() * (team[i].members.length - 1)) + 1
+      // Moderador faz parte do time => necessário removê-lo da lista de lideres  
+      var index = Math.floor(Math.random() * (team.members.length - 1));
+      newLeader = team.members[index + 1].id;
+    } while (team.lastLeaders.includes(newLeader));
+
+    team.lider = newLeader;
+    await this.db.updateLeader(team);
+  }
 }
 
 module.exports = Handler_RSP;
