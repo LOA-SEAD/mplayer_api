@@ -62,9 +62,10 @@ class Handler_RSP extends Handler {
         var team = new Map();
         team.set("id", i);
         team.set("lider", -1);
-        var password = Math.floor((1 + Math.random()) * 0x100000000)
-          .toString(16)
-          .substring(1);
+        //var password = Math.floor((1 + Math.random()) * 0x100000000)
+        //  .toString(16)
+        //  .substring(1);
+        var password = "senha" + i;
         team.set("password", password);
         team.set("members", []);
         this.teams.push(team);
@@ -80,7 +81,7 @@ class Handler_RSP extends Handler {
           used5050: 0,
           lastLeaders: [],
           members: [{ id: userId, name: msg.user.name, ws_id: ws.id, moderator: true }],
-          maxSize: msg.nrPlayers + 1,
+          maxSize: msg.nrPlayers + 1, // + 1 => o moderador faz parte do time
           grpScore: 0,
           gameTime: 0,
           endedGame: 0,
@@ -107,7 +108,7 @@ class Handler_RSP extends Handler {
     var secret = msg.secret.substring(pos + 1);
 
     const findIdsAndPasswords = async () => {
-      
+
       var userId = await this.db.getNextSequenceValue("usuarios");
 
       var idAndpasswords = await this.db.find(
@@ -115,7 +116,7 @@ class Handler_RSP extends Handler {
         { sessionId: sessionId },
         { secret: 1, _id: 0 }
       );
-      
+
       var index = idAndpasswords.findIndex(
         (elemento) => elemento.secret === secret
       );
@@ -123,7 +124,7 @@ class Handler_RSP extends Handler {
       if (index != -1) {
         var team = await this.db.findOne("time", { secret: secret }, {});
 
-        if (team.members.length < team.maxSize + 1) { // +1 => o moderador faz parte do time
+        if (team.members.length < team.maxSize) { 
           let user = {
             id: userId,
             name: msg.user.name,
@@ -133,11 +134,7 @@ class Handler_RSP extends Handler {
           this.db.insertUsuario(user);
 
           var usuario = { id: userId, name: msg.user.name, ws_id: ws.id, indScore: 0 };
-		  team.members.push(usuario);
-          var members2 = [];
-          members2.push(usuario.ws_id);
-          members2.push(team.members[0].ws_id);
-          console.log(members2);
+          team.members.push(usuario);
 
           this.db.updateTeam(team);
 
@@ -146,6 +143,11 @@ class Handler_RSP extends Handler {
             { sessionId: sessionId },
             {}
           );
+
+          // Apenas envia para o moderador e o quem deseja entrar na sessão
+
+          var members2 = [usuario.ws_id, team.members[0].ws_id];
+          console.log(members2);
 
           var mensagem = {
             messageType: "ENTROU_SESSAO",
@@ -193,6 +195,7 @@ class Handler_RSP extends Handler {
         { sessionId: msg.sessionId },
         {}
       );
+
       for (i = 0; i < 3; i++) {
         var S = new Set(); //nao deixa adicionar elementos iguais
         while (S.size < session.questionRaffle[i] + 1) { // +1 => opção "pular"
@@ -241,7 +244,7 @@ class Handler_RSP extends Handler {
           //    index + 1
           //  ].id;
 
-          //await this.db.updateLeader(team[i]);
+          //await this.db.updateLeader(team[i]);    
 
           membersWsIds[i] = team[i].members.map((item) => item.ws_id);
           var mensagem = {
@@ -296,55 +299,37 @@ class Handler_RSP extends Handler {
         },
         {}
       );
+
+      const resposta = msg.answer;
+      var filter = { _id: answers._id };
+      var newvalues;
+
+      if (resposta === "A") newvalues = { $inc: { A: 1, answered: 1 } };
+      else if (resposta === "B") newvalues = { $inc: { B: 1, answered: 1 } };
+      else if (resposta === "C") newvalues = { $inc: { C: 1, answered: 1 } };
+      else if (resposta === "D") newvalues = { $inc: { D: 1, answered: 1 } };
+
+      await this.db.updateAnswers(filter, newvalues);
+      answers.answered++;
+      
       var team = await this.db.findOne(
         "time",
         { sessionId: msg.sessionId, idTeam: msg.teamId },
         {}
       );
 
-      const resposta = msg.answer;
-      var filter = { _id: answers._id };
-      var newvalues;
-
-      if (resposta === "A") newvalues = { $set: { A: answers.A + 1 } };
-      else if (resposta === "B") newvalues = { $set: { B: answers.B + 1 } };
-      else if (resposta === "C") newvalues = { $set: { C: answers.C + 1 } };
-      else if (resposta === "D") newvalues = { $set: { D: answers.D + 1 } };
-
-      await this.db.updateAnswers(filter, newvalues);
-      await this.db.updateCounter(answers);
-      var checkCount = await this.db.findOne(
-        "resposta",
-        {
-          sessionId: msg.sessionId,
-          question: msg.nrQuestion,
-          fase: msg.level,
-          idTeam: msg.teamId,
-        },
-        {}
-      );
-      
-      answers = await this.db.findOne(
-        "resposta",
-        {
-          sessionId: msg.sessionId,
-          question: msg.nrQuestion,
-          fase: msg.level,
-          idTeam: msg.teamId,
-        },
-        {}
-      );
-      
-      let membersWs = team.members.map((item) => item.ws_id);
-      let mensagem;
-      
       //Quando todos os membros de um time responderem
 
-      if (checkCount.answered == (team.members.length - 1)) {
+      console.log("[" + msg.teamId + "] answers.answered = " + answers.answered);
+      console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
+
+      let mensagem;
+
+      if (answers.answered == (team.members.length - 1)) {
         mensagem = {
           messageType: "MOMENTO_GRUPO",
           teamId: msg.teamId,
-          teamId: team.idTeam,
+          leaderId: team.lider,
           sessionId: msg.sessionId,
           gameId: msg.gameId,
           answer: {
@@ -354,13 +339,17 @@ class Handler_RSP extends Handler {
             D: answers.D,
           },
         };
+        let membersWs = team.members.map((item) => item.ws_id);
+        //manda a mensagem para todos os membros do time
+        super.multicast(wss, membersWs, mensagem);
       } else {
         mensagem = {
-          messageType: "ESPERANDO_MEMBROS"
+          messageType: "ESPERANDO_MEMBROS",
+          teamId: msg.teamId
         };
+        super.unicast(wss, ws.id, mensagem);
       }
-      //manda a mensagem para todos os membros do time
-      super.multicast(wss, membersWs, mensagem);
+
     };
     answer();
   }

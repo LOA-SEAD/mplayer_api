@@ -101,8 +101,8 @@ class DB_RSP extends DB{
     }
 
     // Operações na coleção resposta
-    updateAnswers(filter,newValues){
-        return super.updateOne("resposta", filter, newValues);
+    async updateAnswers(filter,newValues){
+        return await super.updateOne("resposta", filter, newValues);
     }
   
     updateOrdem(answers){
@@ -113,14 +113,6 @@ class DB_RSP extends DB{
 
     insertAnswers(answer){ 
         return super.insert("resposta", answer);
-    } 
-    
-    updateCounter(counter){
-        var incrementa = counter.answered +1;
-        var filter = {  _id: counter._id };
-        var newValues = { $set: { answered: incrementa} };
-        return super.updateOne("resposta", filter, newValues);
     }
-    
 }
 module.exports = DB_RSP;
