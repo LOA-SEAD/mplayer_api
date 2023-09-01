@@ -132,9 +132,13 @@ class Handler_RSP extends Handler {
           };
           this.db.insertUsuario(user);
 
-          team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id, indScore: 0 });
-          var members2 = team.members.map((item) => item.ws_id);
-          
+          var usuario = { id: userId, name: msg.user.name, ws_id: ws.id, indScore: 0 };
+		  team.members.push(usuario);
+          var members2 = [];
+          members2.push(usuario.ws_id);
+          members2.push(team.members[0].ws_id);
+          console.log(members2);
+
           this.db.updateTeam(team);
 
           var session = await this.db.findOne(
