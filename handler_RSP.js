@@ -30,6 +30,8 @@ class Handler extends API {
       this.handleNextQuestion(wss, ws, msg);
     else if (msg.messageType == "PROXIMA_FASE")
       this.handleNextFase(wss, ws, msg);
+    else if (msg.messageType == "FIM_DE_JOGO")
+      this.handleEndGame(wss, ws, msg);
   }
 
   handleCadastra(wss, ws, msg) {
@@ -57,7 +59,8 @@ class Handler extends API {
         moderator: moderator,
         sessionId: sessionId,
         endedGame:0,
-        perguntas: [], //atualizar depois do sorteio das perguntas
+        perguntas: [], 
+        ranking: []
       });
 
       var idAndpasswords = [];
@@ -139,7 +142,7 @@ class Handler extends API {
           };
           this.db.insertUsuario(user);
 
-          team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id });
+          team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id, insScore:0 });
           var members2 = team.members.map((item) => item.ws_id);
           console.log(members2);
           this.db.updateTeam(team);
@@ -509,20 +512,61 @@ class Handler extends API {
 
   handleEndGame(wss,ws,msg){
     const updateScore = async()=>{
-      const team = await this.db.findOne("time",{ sessionId: msg.sessionId, idTeam: msg.teamId },{});
-      team.grpScore = msg.grpScore; 
-      // const index = team.members.id.indexOf(msg.id) ;
-      await this.db.updateTeamScore(team);
+      // let team = await this.db.findOne("time",{ sessionId: msg.sessionId, idTeam: msg.teamId },{});
+      // team.grpScore = msg.grpScore; 
+      // //let index = team.members.id.indexOf(msg.userId);
+      // await this.db.updateTeamScore(team);
+      // await this.db.updateEndCounter(team);
+      let sessao = await this.db.findOne("sessao",{sessionId:msg.sessionId});
+      sessao.ranking.push({ idTeam: msg.teamId, point: msg.grpScore, gameTime:msg.gameTime,ranking:0});
+      await this.db.updateRanking(sessao);
       // await this.db.UpdateIndScore(team,index);
-      const user = await this.db.findOne("usuario",{ sessionId: msg.sessionId, id: msg.userId },{});
-      user.indScore = msg.indScore;
-      await this.db.updateUserScore(user);
-      await this.db.updateEndCounter(team);
-      //Time com valores atualizados
-      team = await this.db.findOne("time",{ sessionId: msg.sessionId, idTeam: msg.teamId },{}); 
-      if(team.endedGame == (team.members.length - 1)){
-
+      // let user = await this.db.findOne("usuario",{ sessionId: msg.sessionId, id: msg.userId },{});
+      // user.indScore = msg.indScore;
+      // await this.db.updateUserScore(user);
+      await this.db.updateEndCounter(sessao);
+      //Sessão com os valores atualizados
+      sessao = await this.db.findOne("sessao",{sessionId:msg.sessionId});
+      let mensagem;
+      if(sessao.endedGame == sessao.nrTeams){
+        console.log("ANTES");
+        console.log(sessao.ranking);
+        //Ordenação do ranking com prioridade para Score do grupo
+          sessao.ranking.sort(function(A, B) { 
+            if (A.point !== B.point) {
+                return B.point - A.point;
+            } else {
+                return A.gameTime - B.gameTime;
+            }
+        });
+        console.log("SORT");
+        console.log(sessao.ranking);
+        await this.db.updateRanking(sessao);
+        console.log("UPDATED");
+        console.log(sessao.ranking);
+        sessao = await this.db.findOne("sessao",{sessionId:msg.sessionId});
+        //Adiciona os índides aos rankings
+        for(let i = 0; i<sessao.nrTeams;i++){
+            sessao.ranking[i].ranking = i+1;
+        }
+        //Atualização das variáveis
+         await this.db.updateRanking(sessao);
+         sessao = await this.db.findOne("sessao",{sessionId:msg.sessionId});
+         mensagem =  {
+          "messageType":"CLASSIFICACAO_FINAL",
+          "teams": sessao.ranking,
+          "user":{"id":0}, //?
+          "teamId":msg.teamId,
+          // "team": {
+          //     {"elogio1": 0/1, "elogio2": 0/1, "elogio3": 0/1}},
+          "sessionId":msg.sessionId
+          }
+        super.broadcast(wss,mensagem);
+         
       }
+       else 
+        mensagem = {"messageType": "WAITING_OTHER_TEAMS"};
+      super.broadcast(wss,mensagem); 
     }
     updateScore();
   }

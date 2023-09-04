@@ -15,6 +15,18 @@ class DB_RSP extends DB{
         return super.insert("sessao", session);
     } 
 
+    updateEndCounter(sessao){
+        var filter = { _id: sessao._id };
+        var newValues = { $set: {endedGame: sessao.endedGame+1} };
+        return super.updateOne("sessao",filter, newValues);
+    }
+
+    updateRanking(sessao){
+        var filter = { _id: sessao._id };
+        var newValues = { $set: { ranking: sessao.ranking} };
+        return super.updateOne("sessao", filter, newValues);
+    }
+
     async findSessions(session){
         // return this.conn.collection("sessions").findOne(session);
         return super.findOne("sessions", session);
@@ -45,11 +57,7 @@ class DB_RSP extends DB{
         return super.updateOne("time", filter, newValues);
     }
 
-    updateEndCounter(time){
-        var filter = { _id: time._id };
-        var newValues = { $set: {endedGame: time.endedGame+1} };
-        return super.updateOne("time",filter, newValues);
-    }
+   
     
     updateTeamScore(time){
         var filter = { _id: time._id };
@@ -68,6 +76,7 @@ class DB_RSP extends DB{
         var newValues = { $set: { indScore: user.indScore} };
         return super.updateOne("usuario",filter, newValues);
     }
+
 
     insertTeam(time){
         //return this.conn.collection("times").insertOne(time);
@@ -99,6 +108,7 @@ class DB_RSP extends DB{
     listTeams(sessao){
          return super.list("time", sessao);
     }
+
 
     // Operações na coleção resposta
     updateAnswers(filter,newValues){
