@@ -33,7 +33,7 @@ module.exports = (server, handler) => {
             console.error(`onError: ${err.message}`);
         });
 
-        console.log(`onConnection`);
+        console.log(`onConnection ` + ws.id);
     });
 
     console.log(`App Web Socket Server is running!`);

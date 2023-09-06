@@ -1,6 +1,6 @@
 const WebSocket = require('ws');
 
-class API {
+class Handler {
     constructor(){
     }
 
@@ -27,7 +27,6 @@ class API {
     
     unicast(wss, id, msg){
         console.log('Sending: ' + JSON.stringify(msg));
-        console.log(id);
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 if (id == client.id)
@@ -36,4 +35,4 @@ class API {
         });
     }
 }
-module.exports = API;
+module.exports = Handler;
