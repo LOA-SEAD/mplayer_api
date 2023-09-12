@@ -15,9 +15,14 @@ class DB_RSP extends DB{
         return super.insert("sessao", session);
     } 
 
+    updatePlayersInGame(sessao){
+        var filter = { _id: sessao._id };
+        var newValues = { $inc: {playersInGame: 1} };
+        return super.updateOne("sessao",filter, newValues);
+    }
     updateEndCounter(sessao){
         var filter = { _id: sessao._id };
-        var newValues = { $set: {endedGame: sessao.endedGame+1} };
+        var newValues = { $inc: {endedGame: 1} };
         return super.updateOne("sessao",filter, newValues);
     }
 
@@ -42,6 +47,15 @@ class DB_RSP extends DB{
         return super.list("usuario", {});
     }
 
+    listUsuarios(session){
+        return super.find("usuario",{sessionId: session},{});
+    }
+
+    updateInteraction(user){
+        var filter = { _id: user._id };
+        var newValues = { $inc: { interaction:1 } };
+        return super.updateOne("usuario", filter, newValues);
+    }
     // Operações com a coleção time
     updateTeam(time){
         var filter = { _id: time._id };
@@ -87,9 +101,15 @@ class DB_RSP extends DB{
         return super.list("time", time);
     }
     
+    // updateHelp(time){
+    //     var filter = { _id: time._id };
+    //     var newValues = { $set: { used5050: time.used5050 + 1 } };
+    //     return super.updateOne("time",filter, newValues);
+    // }
+
     updateHelp(time){
         var filter = { _id: time._id };
-        var newValues = { $set: { used5050: time.used5050 + 1 } };
+        var newValues = { $inc: { used5050: 1 } };
         return super.updateOne("time",filter, newValues);
     }
 
@@ -104,11 +124,16 @@ class DB_RSP extends DB{
         var newValues = { $set: { lider: time.lider} };
         return super.updateOne("time",filter, newValues);
     }
-
+  
     listTeams(sessao){
          return super.list("time", sessao);
     }
-
+    
+    updateEndCounterTeam(team){
+        var filter = { _id: team._id };
+        var newValues = { $inc: {endedGame: 1} };
+        return super.updateOne("time",filter, newValues);
+    }
 
     // Operações na coleção resposta
     async updateAnswers(filter,newValues){
