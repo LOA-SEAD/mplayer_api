@@ -493,7 +493,7 @@ class Handler_RSP extends Handler {
 
   handleElogios(wss,ws,msg){
     const elogios = async() =>{
-    var user = [];
+    let user = [];
     for(var i=0;i<msg.team.length;i++){
          user[i] = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.team[i].user.id }, {});
          user[i].elogio1 = msg.team[i].user.elogio1;
@@ -501,6 +501,12 @@ class Handler_RSP extends Handler {
          user[i].elogio3 = msg.team[i].user.elogio3;
          this.db.updateElogios(user[i]);
     }
+    let mensagem = {
+      messageType: "ELOGIOS_ATRIBUIDOS"
+    }
+    let wsIds = user.map((item) => item.ws_id);
+    super.multicast(wss,wsIds,mensagem);
+    
          
       };
       elogios();
@@ -547,7 +553,7 @@ class Handler_RSP extends Handler {
       let team = await this.db.findOne("time",{ sessionId: msg.sessionId, idTeam: msg.teamId },{});
       if(msg.messageType == "FIM_DE_JOGO"){
        
-       await this.db.updateEndCounterTeam(team);
+      
   
       //Procura a sessão e atualiza o ranking
       team = await this.db.findOne("time",{ sessionId: msg.sessionId, idTeam: msg.teamId },{});
@@ -556,6 +562,7 @@ class Handler_RSP extends Handler {
          sessao.ranking.push({ idTeam: msg.teamId, point: msg.grpScore, gameTime:msg.gameTime,ranking:0});
          await this.db.updateRanking(sessao);
       }
+      await this.db.updateEndCounterTeam(team);
     
       //Procura o usuário e atualiza o score individual
       let user = await this.db.findOne("usuario",{ sessionId: msg.sessionId, id: msg.userId },{});
@@ -571,7 +578,9 @@ class Handler_RSP extends Handler {
       let mensagem;
       
     //Verifica se todos os jogadores terminaram
-      if(sessao.endedGame == sessao.playersInGame+2 || msg.messageType == "ENCERRAR_JOGO"){
+    console.log(sessao.endedGame);
+    console.log(sessao.playersInGame);
+      if(sessao.endedGame == sessao.playersInGame || msg.messageType == "ENCERRAR_JOGO"){
         let users = await this.db.listUsuarios(msg.sessionId);
         //Ordenação do ranking com prioridade para Score do grupo 
        
@@ -597,16 +606,17 @@ class Handler_RSP extends Handler {
         await this.db.updateRanking(sessao);
         sessao = await this.db.findOne("sessao",{sessionId:msg.sessionId});
 
-        //Adiciona os índices aos rankings
-        // for(let i = 0; i<sessao.nrTeams;i++){
-        //     sessao.ranking[i].ranking = i+1;
-        // }
+       // Adiciona os índices aos rankings
+        for(let i = 0; i<sessao.ranking.length;i++){
+            sessao.ranking[i].ranking = i+1;
+        }
         //Atualização das variáveis
          await this.db.updateRanking(sessao);
          sessao = await this.db.findOne("sessao",{sessionId:msg.sessionId});
          const usersElogio = users.map(function(item) {
           return {
               "user":item.userId,
+              "name":item.name,
               "elogio1": item.elogio1,
               "elogio2": item.elogio2,
               "elogio3": item.elogio3
