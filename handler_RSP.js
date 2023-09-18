@@ -606,6 +606,7 @@ class Handler_RSP extends Handler {
          sessao = await this.db.findOne("sessao",{sessionId:msg.sessionId});
          const usersElogio = users.map(function(item) {
           return {
+              "user":item.userId,
               "elogio1": item.elogio1,
               "elogio2": item.elogio2,
               "elogio3": item.elogio3
