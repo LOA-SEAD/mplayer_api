@@ -53,7 +53,13 @@ class DB_RSP extends DB{
 
     updateInteraction(user){
         var filter = { _id: user._id };
-        var newValues = { $inc: { interaction:1 } };
+        var newValues = { $set: { interaction:user.interaction } };
+        return super.updateOne("usuario", filter, newValues);
+    }
+    
+    updateElogios(user){
+        var filter = { _id: user._id };
+        var newValues = { $inc: { elogio1:user.elogio1,elogio2:user.elogio2, elogio3:user.elogio3 } };
         return super.updateOne("usuario", filter, newValues);
     }
     // Operações com a coleção time
