@@ -220,6 +220,7 @@ class Handler_RSP extends Handler {
               question: numero,
               idTeam: j,
               ordemQuestoes: [0, 1, 2, 3],
+              completed: false,
               answered: 0,
               A: 0,
               B: 0,
@@ -298,6 +299,7 @@ class Handler_RSP extends Handler {
   }
 
   handleIndividualMoment(wss, ws, msg) {
+
     const answer = async () => {
       var answers = await this.db.findOne(
         "resposta",
@@ -309,14 +311,13 @@ class Handler_RSP extends Handler {
         },
         {}
       );
-      
-  
 
       const resposta = msg.answer;
       var filter = { _id: answers._id };
       var newvalues;
 
       //Incrementa a contagem de respostas e alternativas
+
       if (resposta === "A") newvalues = { $inc: { A: 1, answered: 1 } };
       else if (resposta === "B") newvalues = { $inc: { B: 1, answered: 1 } };
       else if (resposta === "C") newvalues = { $inc: { C: 1, answered: 1 } };
@@ -324,22 +325,34 @@ class Handler_RSP extends Handler {
 
       // Atualização dos valores
       await this.db.updateAnswers(filter, newvalues);
-      answers.answered++;
-      
+
       var team = await this.db.findOne(
         "time",
         { sessionId: msg.sessionId, idTeam: msg.teamId },
         {}
       );
 
-      //Quando todos os membros de um time responderem
+      answers = await this.db.findOne(
+        "resposta",
+        {
+          sessionId: msg.sessionId,
+          question: msg.nrQuestion,
+          fase: msg.level,
+          idTeam: msg.teamId,
+        },
+        {}
+      );
 
+      console.log("[" + msg.teamId + "] answers.completed = " + answers.completed);
       console.log("[" + msg.teamId + "] answers.answered = " + answers.answered);
       console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
-
+      
       let mensagem;
 
+      // Quando todos os membros de um time responderem
+
       if (answers.answered == (team.members.length - 1)) {
+        
         mensagem = {
           messageType: "MOMENTO_GRUPO",
           teamId: msg.teamId,
@@ -353,9 +366,18 @@ class Handler_RSP extends Handler {
             D: answers.D,
           },
         };
-        let membersWs = team.members.map((item) => item.ws_id);
-        //manda a mensagem para todos os membros do time
-        super.multicast(wss, membersWs, mensagem);
+
+        // Apenas envia se a mensagem não foi enviada
+
+        if (!answers.completed) {
+          newvalues = { $set: { completed: true } };
+          await this.db.updateAnswers(filter, newvalues);
+          
+          let membersWs = team.members.map((item) => item.ws_id);
+          
+          //manda a mensagem para todos os membros do time
+          super.multicast(wss, membersWs, mensagem);
+        }
       } else {
         mensagem = {
           messageType: "ESPERANDO_MEMBROS",
@@ -363,7 +385,6 @@ class Handler_RSP extends Handler {
         };
         super.unicast(wss, ws.id, mensagem);
       }
-
     };
     answer();
   }
@@ -473,15 +494,14 @@ class Handler_RSP extends Handler {
   handleNextQuestion(wss, ws, msg) {
     const findTeam = async () => {
 
-      var answers = await this.db.findOne("resposta", { sessionId: msg.sessionId, question: msg.nrQuestion, fase: msg.level, idTeam: msg.teamId }, {});
       var team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
       var membersWs = team.members.map(item => item.ws_id);
-      answers.ordemQuestoes = this.#shuffleArray(answers.ordemQuestoes);
-      await this.db.updateOrdem(answers);
+      var ordemQuestoes = [0, 1, 2, 3];
+      ordemQuestoes = this.#shuffleArray(ordemQuestoes);
       var mensagem = {
         "messageType": "NOVA_QUESTAO",
         "teamId": msg.teamId,
-        "alternativas": answers.ordemQuestoes,
+        "alternativas": ordemQuestoes,
         "sessionId": msg.sessionId,
         "gameId": msg.gameId,
       }
