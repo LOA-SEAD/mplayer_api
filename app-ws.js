@@ -18,7 +18,7 @@ module.exports = (server, handler) => {
         ws.id = wss.getUniqueID();
 
         ws.on('message', data => {
-            console.log(`onMessage: ${data}`);
+            console.log(`onMessage (${ws.id}): ${data}`);
             const msg = JSON.parse(data);
             handler.handleMsg(wss, ws, msg);
             

@@ -34,6 +34,8 @@ class Handler_RSP extends Handler {
       this.handleElogios(wss, ws, msg);
     else if (msg.messageType == "FIM_DE_JOGO" || msg.messageType == "ENCERRAR_JOGO")
       this.handleEndGame(wss, ws, msg);
+    else if (msg.messageType == "MENSAGEM_CHAT")
+      this.handleChat(wss, ws, msg);
   }
 
   handleCadastra(wss, ws, msg) {
@@ -128,7 +130,7 @@ class Handler_RSP extends Handler {
       );
 
       if (index != -1) {
-        var team = await this.db.findOne("time", { secret: secret }, {});
+        var team = await this.db.findOne("time", { secret: secret, sessionId: sessionId }, {});
 
         if (team.members.length < team.maxSize) { 
           let user = {
@@ -491,6 +493,42 @@ class Handler_RSP extends Handler {
     findTeam();
   }
 
+  handleChat(wss, ws, msg) {
+  /*  const findTeam = async () => {
+      
+      const user = await this.db.findOne(
+        "usuario",
+        {
+          sessionId: msg.sessionId,
+          id: msg.user.id
+        },
+        {}
+      );
+      console.log(user);
+      
+   
+      let team = await this.db.findOne("time",{ sessionId: msg.sessionId, idTeam: msg.teamId },{});
+
+      
+        console.log(team);
+        console.log("printou aqui");
+      var membersWs = team.members.map((item) => item.ws_id);
+
+      var mensagem = {
+        messageType: "MENSAGEM_CHAT",
+        user: { id: user.id, name: user.name },
+        teamId: msg.teamId,
+        sessionId: msg.sessionId,
+        gameId: msg.gameId,
+        texto: msg.texto,
+      };
+
+      super.multicast(wss, membersWs, mensagem); //informa todos os membros do time
+    };
+    findTeam();*/
+    super.broadcast(wss, msg);
+  }
+
   handleNextQuestion(wss, ws, msg) {
     const findTeam = async () => {
 
@@ -675,6 +713,7 @@ class Handler_RSP extends Handler {
     updateScore();
   }
 
+ 
   // Métodos privados
 
   #shuffleArray(array) {
