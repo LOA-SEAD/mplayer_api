@@ -63,12 +63,12 @@ class DB_RSP extends DB{
         return super.updateOne("usuario", filter, newValues);
     }
     // Operações com a coleção time
-    updateTeam(time){
+    /* updateTeam(time){
         var filter = { _id: time._id };
         var newValues = { $set: { members: time.members} };
         //return this.conn.collection("times").updateOne(filter, newValues);
         return super.updateOne("time", filter, newValues);
-    }
+    }*/
     
     updateLastLeader(time){
         var filter = { _id: time._id };
@@ -135,17 +135,16 @@ class DB_RSP extends DB{
          return super.list("time", sessao);
     }
     
-    updateEndCounterTeam(team){
-        var filter = { _id: team._id };
-        var newValues = { $inc: {endedGame: 1} };
-        return super.updateOne("time",filter, newValues);
-    }
-
     // Operações na coleção resposta
     async updateAnswers(filter,newValues){
         return await super.updateOne("resposta", filter, newValues);
     }
-  
+
+
+    async updateTeam(filter,newValues){
+        return await super.updateOne("time", filter, newValues);
+    }
+
     updateOrdem(answers){
         var filter = { _id: answers._id };
         var newValues = { $set: { ordemQuestoes: answers.ordemQuestoes} };
