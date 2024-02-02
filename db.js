@@ -44,7 +44,7 @@ class DB {
         while (!ok) {
             
             await new Promise(resolve => setTimeout(resolve, 2000));
-            console.log("=> Waiting for result");
+            // console.log("=> Waiting for result");
             
             await this.conn.collection(collectionName).findOne(query, {projection: proj}) 
                     .then(res => { result = res; ok = true })
@@ -62,7 +62,7 @@ class DB {
         while (!ok) {
             
             await new Promise(resolve => setTimeout(resolve, 2000));
-            console.log("=> Waiting for result");
+            // console.log("=> Waiting for result");
             
             await this.conn.collection(collectionName).find(query).project(projection).toArray() 
                     .then(res => { result = res; ok = true;})
@@ -77,7 +77,7 @@ class DB {
         
         var ret = await this.findOne('counters', {_id: sequenceName}, {sequence_value: 1});
         var value = 1;
-        console.log(ret);
+        // console.log(ret);
 
         if (ret == null) {
             this.conn.collection('counters').insertOne({_id: sequenceName, sequence_value: value});

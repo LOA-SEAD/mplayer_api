@@ -152,7 +152,8 @@ class Handler_RSP extends Handler {
 
           team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id, indScore: 0 });
           var members2 = team.members.map((item) => item.ws_id);
-          console.log(members2);
+          
+          // console.log(members2);
 
           var filter = { _id: team._id };
           var newValues = { $set: { members: team.members } };
@@ -167,7 +168,8 @@ class Handler_RSP extends Handler {
           // Apenas envia para o moderador e o quem deseja entrar na sessão
 
           var members2 = [user.ws_id, team.members[0].ws_id];
-          console.log(members2);
+          
+          // console.log(members2);
 
           var mensagem = {
             messageType: "ENTROU_SESSAO",
@@ -350,9 +352,9 @@ class Handler_RSP extends Handler {
         {}
       );
 
-      console.log("[" + msg.teamId + "] answers.completed = " + answers.completed);
-      console.log("[" + msg.teamId + "] answers.answered = " + answers.answered);
-      console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
+      // console.log("[" + msg.teamId + "] answers.completed = " + answers.completed);
+      // console.log("[" + msg.teamId + "] answers.answered = " + answers.answered);
+      // console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
 
       let mensagem;
 
@@ -637,7 +639,7 @@ class Handler_RSP extends Handler {
         // Atualiza o ranking 
 
         if (team.endedGame == 0) {
-          console.log("Atualizando Ranking");
+          // console.log("Atualizando Ranking");
           sessao.ranking.push({ idTeam: msg.teamId, point: msg.grpScore, gameTime: msg.gameTime, ranking: 0 });
           await this.db.updateRanking(sessao);
         }
@@ -684,11 +686,11 @@ class Handler_RSP extends Handler {
 
       team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
 
-      console.log("[" + msg.teamId + "] team.completed = " + team.completed);
-      console.log("[" + msg.teamId + "] team.endedGame = " + team.endedGame);
-      console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
-      console.log("[" + msg.teamId + "] team.leader.id = " + team.lider);
-      console.log("[" + msg.teamId + "] user.id = " + msg.user.id);
+      // console.log("[" + msg.teamId + "] team.completed = " + team.completed);
+      // console.log("[" + msg.teamId + "] team.endedGame = " + team.endedGame);
+      // console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
+      // console.log("[" + msg.teamId + "] team.leader.id = " + team.lider);
+      // console.log("[" + msg.teamId + "] user.id = " + msg.user.id);
 
       if (team.endedGame == team.members.length - 1 || msg.messageType == "ENCERRAR_JOGO") {
 
@@ -768,7 +770,7 @@ class Handler_RSP extends Handler {
 
           var playersWs = players.map(item => item.ws_id);
 
-          console.log(playersWs);
+          // console.log(playersWs);
 
           super.multicast(wss, playersWs, mensagemGrupos);
 
