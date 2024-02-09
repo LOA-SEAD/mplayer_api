@@ -104,6 +104,7 @@ class Handler_RSP extends Handler {
         //"gameId": msg.gameId,
         teams: idAndpasswords,
         sessionId: sessionId,
+        user: moderator
       };
 
       super.unicast(wss, ws.id, mensagem);
@@ -472,7 +473,7 @@ class Handler_RSP extends Handler {
       const user = await this.db.findOne(
         "usuario",
         {
-          sessionId: msg.sessionId,
+          // sessionId: msg.sessionId,
           id: msg.user.id
         },
         {}
@@ -517,7 +518,7 @@ class Handler_RSP extends Handler {
       const user = await this.db.findOne(
         "usuario",
         {
-          sessionId: msg.sessionId,
+          // sessionId: msg.sessionId,
           id: msg.user.id
         },
         {}
@@ -567,7 +568,8 @@ class Handler_RSP extends Handler {
     const elogios = async () => {
       let user = [];
       for (var i = 0; i < msg.team.length; i++) {
-        user[i] = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.team[i].user.id }, {});
+        // user[i] = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.team[i].user.id }, {});
+        user[i] = await this.db.findOne("usuario", { id: msg.team[i].user.id }, {});
         user[i].elogio1 = msg.team[i].user.elogio1;
         user[i].elogio2 = msg.team[i].user.elogio2;
         user[i].elogio3 = msg.team[i].user.elogio3;
@@ -653,7 +655,8 @@ class Handler_RSP extends Handler {
 
         // Procura o usuário e atualiza o score individual
 
-        let user = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.user.id }, {});
+        // let user = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.user.id }, {});
+        let user = await this.db.findOne("usuario", { id: msg.user.id }, {});
 
         user.indScore = msg.user.indScore;
         await this.db.updateUserScore(user);
