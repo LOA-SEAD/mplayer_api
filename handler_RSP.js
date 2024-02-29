@@ -153,7 +153,7 @@ class Handler_RSP extends Handler {
 
           team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id, indScore: 0 });
           var members2 = team.members.map((item) => item.ws_id);
-          
+
           // console.log(members2);
 
           var filter = { _id: team._id };
@@ -169,7 +169,7 @@ class Handler_RSP extends Handler {
           // Apenas envia para o moderador e o quem deseja entrar na sessão
 
           var members2 = [user.ws_id, team.members[0].ws_id];
-          
+
           // console.log(members2);
 
           var mensagem = {
@@ -235,7 +235,8 @@ class Handler_RSP extends Handler {
               A: 0,
               B: 0,
               C: 0,
-              D: 0
+              D: 0,
+              vazio: 0
             })
           }
         }
@@ -328,10 +329,23 @@ class Handler_RSP extends Handler {
 
       // Incrementa a contagem de respostas e alternativas
 
-      if (resposta === "A") newvalues = { $inc: { A: 1, answered: 1 } };
-      else if (resposta === "B") newvalues = { $inc: { B: 1, answered: 1 } };
-      else if (resposta === "C") newvalues = { $inc: { C: 1, answered: 1 } };
-      else if (resposta === "D") newvalues = { $inc: { D: 1, answered: 1 } };
+      switch (resposta) {
+        case "A":
+          newvalues = { $inc: { A: 1, answered: 1 } };
+          break;
+        case "B":
+          newvalues = { $inc: { B: 1, answered: 1 } };
+          break;
+        case "C":
+          newvalues = { $inc: { C: 1, answered: 1 } };
+          break;
+        case "D":
+          newvalues = { $inc: { D: 1, answered: 1 } };
+          break;
+        default:
+          newvalues = { $inc: { vazio: 1, answered: 1 } };
+          break;
+      }
 
       // Atualização dos valores
       await this.db.updateAnswers(filter, newvalues);
