@@ -529,21 +529,21 @@ class Handler_RSP extends Handler {
   handleChat(wss, ws, msg) {
     const findTeam = async () => {
 
-      const user = await this.db.findOne(
+      /* const user = await this.db.findOne(
         "usuario",
         {
           // sessionId: msg.sessionId,
           id: msg.user.id
         },
         {}
-      );
+      );*/
 
       let team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
       var membersWs = team.members.map((item) => item.ws_id);
 
       var mensagem = {
         messageType: "MENSAGEM_CHAT",
-        user: { id: user.id, name: user.name },
+        user: { id: msg.user.id, name: msg.user.name },
         teamId: msg.teamId,
         sessionId: msg.sessionId,
         gameId: msg.gameId,
