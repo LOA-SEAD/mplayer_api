@@ -30,14 +30,22 @@ class Handler_RSP extends Handler {
       this.handleNextQuestion(wss, ws, msg);
     else if (msg.messageType == "PROXIMA_FASE")
       this.handleNextFase(wss, ws, msg);
-    else if (msg.messageType == "AVALIACAO")
-      this.handleElogios(wss, ws, msg);
-    else if (msg.messageType == "FIM_DE_JOGO" || msg.messageType == "ENCERRAR_JOGO")
-      this.handleEndGame(wss, ws, msg);
+    else if (msg.messageType == "AVALIACAO") {
+      const avaliacao = async() => {
+        await this.handleElogios(wss, ws, msg);
+      }
+      avaliacao();
+    }
+    else if (msg.messageType == "FIM_DE_JOGO" || msg.messageType == "ENCERRAR_JOGO") {
+      const fimdejogo = async() => {
+        await this.handleEndGame(wss, ws, msg);
+      }
+      fimdejogo();
+    }
     else if (msg.messageType == "MENSAGEM_CHAT")
       this.handleChat(wss, ws, msg);
     else if (msg.messageType == "DUVIDA")
-     this.handleDuvida(wss, ws, msg);
+      this.handleDuvida(wss, ws, msg);
   }
 
   handleCadastra(wss, ws, msg) {
@@ -155,8 +163,7 @@ class Handler_RSP extends Handler {
 
           team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id, indScore: 0 });
           var members2 = team.members.map((item) => item.ws_id);
-          console.log(members2);
-
+          
           var filter = { _id: team._id };
           var newValues = { $set: { members: team.members } };
           this.db.updateTeam(filter, newValues);
@@ -170,8 +177,7 @@ class Handler_RSP extends Handler {
           // Apenas envia para o moderador e o quem deseja entrar na sessão
 
           var members2 = [user.ws_id, team.members[0].ws_id];
-          console.log(members2);
-
+          
           var mensagem = {
             messageType: "ENTROU_SESSAO",
             user: { id: user.id, name: user.name },
@@ -353,9 +359,9 @@ class Handler_RSP extends Handler {
         {}
       );
 
-      console.log("[" + msg.teamId + "] answers.completed = " + answers.completed);
-      console.log("[" + msg.teamId + "] answers.answered = " + answers.answered);
-      console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
+      // console.log("[" + msg.teamId + "] answers.completed = " + answers.completed);
+      // console.log("[" + msg.teamId + "] answers.answered = " + answers.answered);
+      // console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
 
       let mensagem;
 
@@ -586,7 +592,7 @@ class Handler_RSP extends Handler {
   //   elogios();
   // }
 
-  handleElogios(wss, ws, msg) {
+  async handleElogios(wss, ws, msg) {
     const elogios = async () => {
       let user = [];
       for (var i = 0; i < msg.team.length; i++) {
@@ -594,7 +600,7 @@ class Handler_RSP extends Handler {
         user[i].elogio1 = msg.team[i].elogio1;
         user[i].elogio2 = msg.team[i].elogio2;
         user[i].elogio3 = msg.team[i].elogio3;
-        this.db.updateElogios(user[i]);
+        await this.db.updateElogios(user[i]);
       }
       let mensagem = {
         messageType: "ELOGIOS_ATRIBUIDOS"
@@ -602,7 +608,7 @@ class Handler_RSP extends Handler {
       let wsIds = user.map((item) => item.ws_id);
       super.multicast(wss, wsIds, mensagem);
     };
-  
+
     elogios();
   }
 
@@ -643,58 +649,33 @@ class Handler_RSP extends Handler {
     console.log("Handling Exit: " + ws.id);
   }
 
-  handleEndGame(wss, ws, msg) {
+  async handleEndGame(wss, ws, msg) {
 
     const updateScore = async () => {
 
-      let team, sessao, users, filter, newValues;
+      let team, filter, newValues;
+
+      let user = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.user.id }, {});
 
       if (msg.messageType == "FIM_DE_JOGO") {
 
-        // Procura a sessão
+        // Checando se o ranking pode ser atualizado com os dados do time
 
-        sessao = await this.db.findOne("sessao", { sessionId: msg.sessionId });
-
-        team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
-
-        // Atualiza o ranking 
-
-        if (team.endedGame == 0) {
-          console.log("Atualizando Ranking");
-          sessao.ranking.push({ idTeam: msg.teamId, point: msg.grpScore, gameTime: msg.gameTime, ranking: 0 });
-          await this.db.updateRanking(sessao);
-        }
+        await this.#checkRanking(msg);
 
         // Atualiza o número de pessoas que terminaram o jogo
+
+        team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
 
         filter = { _id: team._id };
         newValues = { $inc: { endedGame: 1 } };
 
         await this.db.updateTeam(filter, newValues);
 
-        // Procura o usuário e atualiza o score individual
-
-        let user = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.user.id }, {});
+        // Atualiza o score individual
 
         user.indScore = msg.user.indScore;
         await this.db.updateUserScore(user);
-
-        let received = [];
-        received.push({
-          elogio1: user.elogio1,
-          elogio2: user.elogio2,
-          elogio3: user.elogio3
-        });
-
-        let mensagem_aval = {
-          "messageType": "RETORNA_AVALIACAO",
-          "user": user,
-          "received": received,
-          "sessionId": msg.sessionId,
-          "gameId": sessao.gameId
-        }
-
-        super.unicast(wss, user.ws_id, mensagem_aval);
 
         // Atualiza o número de pessoas que terminaram o jogo
 
@@ -707,135 +688,39 @@ class Handler_RSP extends Handler {
 
       team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
 
-      console.log("[" + msg.teamId + "] team.completed = " + team.completed);
-      console.log("[" + msg.teamId + "] team.endedGame = " + team.endedGame);
-      console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
-      console.log("[" + msg.teamId + "] team.leader.id = " + team.lider);
-      console.log("[" + msg.teamId + "] user.id = " + msg.user.id);
+      // console.log("[" + msg.teamId + "] team.completed = " + team.completed);
+      // console.log("[" + msg.teamId + "] team.endedGame = " + team.endedGame);
+      // console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
+      // console.log("[" + msg.teamId + "] team.leader.id = " + team.lider);
+      // console.log("[" + msg.teamId + "] user.id = " + msg.user.id);
 
       if (team.endedGame == team.members.length - 1 || msg.messageType == "ENCERRAR_JOGO") {
 
         team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
 
         if (!team.completed && team.lider == msg.user.id) {
-
-          newValues = { $set: { completed: true } };
-          await this.db.updateTeam(filter, newValues);
-
-          sessao = await this.db.findOne("sessao", { sessionId: msg.sessionId });
-
-          // Ordenação do ranking com prioridade para Score do grupo 
-
-          sessao.ranking.sort(function (A, B) {
-            if (A.point !== B.point) {
-              return B.point - A.point;
-            } else {
-              return A.gameTime - B.gameTime;
-            }
-          });
-
-          // Atualiza a ordem seguindo o Ranking
-
-          await this.db.updateRanking(sessao);
-
-          sessao = await this.db.findOne("sessao", { sessionId: msg.sessionId });
-
-          // Adiciona os índices aos rankings
-
-          for (let i = 0; i < sessao.ranking.length; i++) {
-            sessao.ranking[i].ranking = i + 1;
-          }
-
-          // Atualização das variáveis
-
-          await this.db.updateRanking(sessao);
-
-          users = await this.db.listUsuarios(msg.sessionId);
-
-          // Ordenação dos usuários
-
-          users = users.sort(function (A, B) {
-            if (A.indScore !== B.indScore) {
-              return B.indScore - A.indScore;
-            } else {
-              return B.interaction - A.interaction;
-            }
-          });
-
-          let mensagemModerador = {
-            "messageType": "CLASSIFICACAO_FINAL_MODERADOR",
-            "teams": sessao.ranking,
-            "user": users,
-            "sessionId": msg.sessionId,
-            "gameId": sessao.gameId
-          }
-
-          super.unicast(wss, team.members[0].ws_id, mensagemModerador);
-
-          let mensagemGrupos = {
-            "messageType": "CLASSIFICACAO_FINAL",
-            "teams": sessao.ranking,
-            "sessionId": msg.sessionId,
-            "gameId": sessao.gameId
-          }
-
-          let times = await this.db.find("time", { sessionId: msg.sessionId, completed: true }, {});
-
-          let players = []
-
-          for (let i = 0; i < times.length; i++) {
-            for (let j = 1; j < times[i].members.length; j++) {
-              players.push(times[i].members[j]);
-            }
-          }
-
-          var playersWs = players.map(item => item.ws_id);
-
-          console.log(playersWs);
-
-          super.multicast(wss, playersWs, mensagemGrupos);
-
-          /*
-          const usersElogio = users.map(function (item) {
-            return {
-              "user": item.userId,
-              "name": item.name,
-              "elogio1": item.elogio1,
-              "elogio2": item.elogio2,
-              "elogio3": item.elogio3
-            };
-          });
-
-          mensagem = {
-            "messageType": "CLASSIFICACAO_FINAL",
-            "teams": sessao.ranking,
-            "user": { "id": 0 }, //?
-            "teamId": msg.teamId,
-            "elogios": usersElogio,
-            "sessionId": msg.sessionId
-          }
-          super.multicast(wss, wsIds, mensagem);
-
-          users = users.map(function (item) {
-            return {
-              "teamId": item.teamId,
-              "id": item.id,
-              "indScore": item.indScore,
-              "interaction": item.interaction
-            };
-          });
-
-          let mensagemProfessor = {
-            "messageType": "CLASSIFICACAO_FINAL_MODERADOR",
-            "teams": sessao.ranking,
-            "user": users,
-            "sessionId": msg.sessionId
-          }
-
-          super.unicast(wss, team.members[0].ws_id, mensagemProfessor)
-          */
+          await this.#sendClassificacao(wss, msg, team);
         }
-      }
+      } 
+
+      // Envia mensagem para retorno de avaliação
+      
+      let received = [];
+        received.push({
+          elogio1: user.elogio1,
+          elogio2: user.elogio2,
+          elogio3: user.elogio3
+        });
+
+        let mensagem_aval = {
+          "messageType": "RETORNA_AVALIACAO",
+          "user": user,
+          "received": received,
+          "sessionId": msg.sessionId,
+          "gameId": msg.gameId
+        }
+
+        super.unicast(wss, user.ws_id, mensagem_aval);
     }
     updateScore();
   }
@@ -846,14 +731,14 @@ class Handler_RSP extends Handler {
       let team = await this.db.findOne("time", { sessionId: msg.sessionId, idTeam: msg.teamId }, {});
 
       let mensagemDuvida = {
-            "messageType": "DUVIDA",
-            "teamId": msg.teamId,
-            "sessionId": msg.sessionId,
-            "gameId": msg.gameId
-        };
+        "messageType": "DUVIDA",
+        "teamId": msg.teamId,
+        "sessionId": msg.sessionId,
+        "gameId": msg.gameId
+      };
 
-        // Enviar mensagem para o moderador
-        super.unicast(wss, team.members[0].ws_id, mensagemDuvida);
+      // Enviar mensagem para o moderador
+      super.unicast(wss, team.members[0].ws_id, mensagemDuvida);
     };
 
     sendMessage();
@@ -895,6 +780,107 @@ class Handler_RSP extends Handler {
 
     team.lider = newLeader;
     await this.db.updateLeader(team);
+  }
+
+  async #checkRanking(msg) {
+    var sessao = await this.db.findOne("sessao", { sessionId: msg.sessionId });
+
+    var index = sessao.ranking.findIndex(
+      (elemento) => elemento.idTeam === msg.teamId
+    );
+
+    // Atualiza o ranking 
+
+    if (index == -1) {
+      console.log("Atualizando Ranking " + msg.teamId);
+      sessao.ranking.push({ idTeam: msg.teamId, point: msg.grpScore, gameTime: msg.gameTime, ranking: 0 });
+      await this.db.updateRanking(sessao);
+    }
+  }
+
+  async #updateRanking(msg) {
+    
+    let sessao = await this.db.findOne("sessao", { sessionId: msg.sessionId });
+
+    // Ordenação do ranking com prioridade para Score do grupo 
+
+    await sessao.ranking.sort(function (A, B) {
+      if (A.point !== B.point) {
+        return B.point - A.point;
+      } else {
+        return A.gameTime - B.gameTime;
+      }
+    });
+
+    // Atualiza a ordem seguindo o Ranking
+
+    await this.db.updateRanking(sessao);
+
+    sessao = await this.db.findOne("sessao", { sessionId: msg.sessionId });
+
+    // Adiciona os índices aos rankings
+
+    for (let i = 0; i < sessao.ranking.length; i++) {
+      sessao.ranking[i].ranking = i + 1;
+    }
+
+    // Atualização das variáveis
+
+    await this.db.updateRanking(sessao);
+  }
+
+  async #sendClassificacao(wss, msg, team) {
+    
+    var newValues = { $set: { completed: true } };
+    var filter = { _id: team._id };
+    await this.db.updateTeam(filter, newValues);
+
+    await this.#updateRanking(msg);
+
+    var users = await this.db.listUsuarios(msg.sessionId);
+
+    // Ordenação dos usuários
+
+    users = users.sort(function (A, B) {
+      if (A.indScore !== B.indScore) {
+        return B.indScore - A.indScore;
+      } else {
+        return B.interaction - A.interaction;
+      }
+    });
+
+    var sessao = await this.db.findOne("sessao", { sessionId: msg.sessionId });
+
+    let mensagemModerador = {
+      "messageType": "CLASSIFICACAO_FINAL_MODERADOR",
+      "teams": sessao.ranking,
+      "user": users,
+      "sessionId": msg.sessionId,
+      "gameId": sessao.gameId
+    }
+
+    super.unicast(wss, team.members[0].ws_id, mensagemModerador);
+
+    let mensagemGrupos = {
+      "messageType": "CLASSIFICACAO_FINAL",
+      "teams": sessao.ranking,
+      "sessionId": msg.sessionId,
+      "gameId": sessao.gameId
+    }
+
+    let times = await this.db.find("time", { sessionId: msg.sessionId, completed: true }, {});
+
+    let players = []
+
+    for (let i = 0; i < times.length; i++) {
+      for (let j = 1; j < times[i].members.length; j++) {
+        players.push(times[i].members[j]);
+      }
+    }
+
+    var playersWs = players.map(item => item.ws_id);
+
+    super.multicast(wss, playersWs, mensagemGrupos);
   }
 }
 
