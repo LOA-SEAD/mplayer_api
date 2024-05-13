@@ -652,41 +652,46 @@ class Handler_RSP extends Handler {
 
     var time = await this.db.findOne("time", filter);
 
-    console.log("[Antes] => ", time.members);
+    if (time != null) {
 
-    var index = time.members.findIndex(
-      (elemento) => elemento.ws_id === ws.id
-    );
+      console.log("[Antes] => ", time.members);
 
-    if (index != -1) {
+      var index = time.members.findIndex(
+        (elemento) => elemento.ws_id === ws.id
+      );
 
-      var membro = time.members[index];
+      if (index != -1) {
 
-      console.log(membro);
+        var membro = time.members[index];
 
-      if (!membro.moderator) {
-        // Removendo membro
+        console.log(membro);
 
-        time.members.splice(index, 1);
+        if (!membro.moderator) {
+          // Removendo membro
 
-        // Atualizando time
+          time.members.splice(index, 1);
 
-        filter = { _id: time._id };
-        var newValues = { $set: { members: time.members } };
-        this.db.updateTeam(filter, newValues);
+          // Atualizando time
 
-        time = await this.db.findOne("time", filter);
+          filter = { _id: time._id };
+          var newValues = { $set: { members: time.members } };
+          this.db.updateTeam(filter, newValues);
 
-        if (time.lider == membro.id) {
-          console.log("Membro era lider");
+          time = await this.db.findOne("time", filter);
+
+          if (time.lider == membro.id) {
+            console.log("Membro era lider");
+          } else {
+            console.log("Membro não era lider");
+          }
         } else {
-          console.log("Membro não era lider");
+          console.log("Membro era moderador - não foi retirado");
         }
-
-        console.log("[Depois] => ", time.members);
       } else {
-        console.log("Membro era moderador - não foi retirado");
+        console.log("Membro de nenhum time ou time já finalizou o jogo");
       }
+
+      console.log("[Depois] => ", time.members);
     }
   }
 
