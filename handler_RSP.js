@@ -645,8 +645,42 @@ class Handler_RSP extends Handler {
     findTeam();
   }
 
-  handleExit(wss, ws) {
+  async handleExit(wss, ws) {
     console.log("Handling Exit: " + ws.id);
+
+    var filter = { "members.ws_id": ws.id }
+
+    var time = await this.db.findOne("time", filter);
+
+    console.log("[Antes] => ", time.members);
+
+    var index = time.members.findIndex(
+      (elemento) => elemento.ws_id === ws.id
+    );
+
+    var membro = time.members[index];
+
+    console.log(membro);
+
+    // Removendo membro
+
+    time.members.splice(index, 1);
+
+    // Atualizando time
+
+    filter = { _id: time._id };
+    var newValues = { $set: { members: time.members } };
+    this.db.updateTeam(filter, newValues);
+
+    time = await this.db.findOne("time", filter);
+
+    if (time.lider == membro.id) {
+      console.log("Membro era lider");
+    } else {
+      console.log("Membro não era lider");
+    }
+
+    console.log("[Depois] => ", time.members);
   }
 
   async handleEndGame(wss, ws, msg) {
