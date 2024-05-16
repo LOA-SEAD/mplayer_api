@@ -36,12 +36,14 @@ class Handler_RSP extends Handler {
       }
       avaliacao();
     }
-    else if (msg.messageType == "FIM_DE_JOGO" || msg.messageType == "ENCERRAR_JOGO") {
+    else if (msg.messageType == "FIM_DE_JOGO") {
       const fimdejogo = async () => {
         await this.handleEndGame(wss, ws, msg);
       }
       fimdejogo();
     }
+    else if (msg.messageType == "ENCERRAR_JOGO")
+      this.handleEncerrar(wss, ws, msg);
     else if (msg.messageType == "MENSAGEM_CHAT")
       this.handleChat(wss, ws, msg);
     else if (msg.messageType == "DUVIDA")
@@ -662,11 +664,14 @@ class Handler_RSP extends Handler {
 
       if (index != -1) {
 
+        var sessao = await this.db.findOne("sessao", { sessionId: time.sessionId });
+
         var membro = time.members[index];
 
         console.log(membro);
 
         if (!membro.moderator) {
+
           // Removendo membro
 
           time.members.splice(index, 1);
@@ -679,11 +684,38 @@ class Handler_RSP extends Handler {
 
           time = await this.db.findOne("time", filter);
 
-          if (time.lider == membro.id) {
-            console.log("Membro era lider");
-          } else {
-            console.log("Membro não era lider");
+          var msg_desconexao = {
+            messageType: "DESCONEXAO",
+            user: membro,
+            teamId: time.idTeam,
+            sessionId: time.sessionId,
+            gameId: sessao.gameId
           }
+
+          if (time.lider == membro.id) {
+
+            console.log("Membro era lider");
+
+            // Busca novo líder e constrói a mensagem com o Id do novo líder
+            
+            await this.#newLeader(time);
+            
+            msg_desconexao.leaderId = time.lider;
+            
+          } else {
+            
+            console.log("Membro não era lider");
+            
+            msg_desconexao.leaderId = -1;
+          
+          }
+
+          console.log(msg_desconexao);
+
+          var membersWs = time.members.map((item) => item.ws_id);
+
+          super.multicast(wss, membersWs, msg_desconexao);
+        
         } else {
           console.log("Membro era moderador - não foi retirado");
         }
@@ -770,6 +802,37 @@ class Handler_RSP extends Handler {
     }
     updateScore();
   }
+
+  handleEncerrar(wss, ws, msg) {
+    const sendMessage = async () => {
+   
+      let msg_encerrar = {
+        "messageType": "ENCERRAR",
+        "sessionId": msg.sessionId,
+        "gameId": msg.gameId
+      };
+
+      let players = []
+      var teams = await this.db.find("time", { sessionId: msg.sessionId }, {});
+
+      for (let i = 0; i < teams.length; i++) {
+        for (let j = 1; j < teams[i].members.length; j++) {
+          players.push(teams[i].members[j]);
+        }
+      }
+  
+      var playersWs = players.map(item => item.ws_id);
+
+      super.multicast(wss, playersWs,msg_encerrar);
+
+      for (let i=0; i < teams.length; i++)
+      {
+        await this.#sendClassificacao(wss, msg, teams[i]);
+      }
+    };
+    sendMessage();
+
+}
 
   handleDuvida(wss, ws, msg) {
     const sendMessage = async () => {
