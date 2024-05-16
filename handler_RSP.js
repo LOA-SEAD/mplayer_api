@@ -9,6 +9,7 @@ class Handler_RSP extends Handler {
     this.players = [];
     this.teams = [];
     this.db = new DB_RSP();
+    this.times_ws_id = new Map();
 
     this.totalAnswers = [0];
   }
@@ -311,7 +312,14 @@ class Handler_RSP extends Handler {
           };
           super.multicast(wss, membersWsIds[i], mensagem);
         }
+
+        // Adicionando o time no HashMap (para acelerar o envio de multicast)
+
+        var membersWs = team[i].members.map((item) => item.ws_id);
+        this.times_ws_id.set(team[i], membersWs);
       }
+
+
     };
     findSession();
   }
@@ -523,6 +531,34 @@ class Handler_RSP extends Handler {
   handleChat(wss, ws, msg) {
     const findTeam = async () => {
 
+      var membersWs;
+      if (!this.times_ws_id.has(msg.teamId)) {
+        console.log("1a mensagem no chat");
+        let team = await this.db.findOne("time", { sessionId: msg.sessionId, 
+          idTeam: msg.teamId }, {});
+        membersWs = team.members.map((item) => item.ws_id);
+        this.times_ws_id.set(msg.teamId, membersWs);
+      } else {
+        membersWs = this.times_ws_id.get(msg.teamId);
+      }
+
+      var mensagem = {
+        messageType: "MENSAGEM_CHAT",
+        user: { id: msg.user.id, name: msg.user.name },
+        teamId: msg.teamId,
+        sessionId: msg.sessionId,
+        gameId: msg.gameId,
+        texto: msg.texto,
+      };
+
+      super.multicast(wss, membersWs, mensagem); //informa todos os membros do time
+    };
+    findTeam();
+  }
+
+  /*handleChat(wss, ws, msg) {
+    const findTeam = async () => {
+
       const user = await this.db.findOne(
         "usuario",
         {
@@ -547,7 +583,8 @@ class Handler_RSP extends Handler {
       super.multicast(wss, membersWs, mensagem); //informa todos os membros do time
     };
     findTeam();
-  }
+  }*/
+
 
   handleNextQuestion(wss, ws, msg) {
 
@@ -823,12 +860,7 @@ class Handler_RSP extends Handler {
   
       var playersWs = players.map(item => item.ws_id);
 
-      super.multicast(wss, playersWs,msg_encerrar);
-
-      for (let i=0; i < teams.length; i++)
-      {
-        await this.#sendClassificacao(wss, msg, teams[i]);
-      }
+      super.multicast(wss, playersWs, msg_encerrar);
     };
     sendMessage();
 
