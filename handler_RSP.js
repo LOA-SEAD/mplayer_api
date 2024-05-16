@@ -316,7 +316,7 @@ class Handler_RSP extends Handler {
         // Adicionando o time no HashMap (para acelerar o envio de multicast)
 
         var membersWs = team[i].members.map((item) => item.ws_id);
-        this.times_ws_id.set(team[i], membersWs);
+        this.times_ws_id.set(team[i].idTeam, membersWs);
       }
 
 
