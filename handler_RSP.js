@@ -10,6 +10,7 @@ class Handler_RSP extends Handler {
     this.teams = [];
     this.db = new DB_RSP();
     this.times_ws_id = new Map();
+    this.sessoes = new Map();
 
     this.totalAnswers = [0];
   }
@@ -62,7 +63,7 @@ class Handler_RSP extends Handler {
 
       var sessionId = await this.db.getNextSequenceValue("sessoes");
 
-      this.db.gameInfo({
+      this.db.insertSession({
         gameId: msg.gameId,
         nrTeams: msg.nrTeams,
         nrPlayers: msg.nrPlayers,
@@ -533,7 +534,6 @@ class Handler_RSP extends Handler {
 
       var membersWs;
       if (!this.times_ws_id.has(msg.teamId)) {
-        console.log("1a mensagem no chat");
         let team = await this.db.findOne("time", { sessionId: msg.sessionId, 
           idTeam: msg.teamId }, {});
         membersWs = team.members.map((item) => item.ws_id);
@@ -729,22 +729,22 @@ class Handler_RSP extends Handler {
             gameId: sessao.gameId
           }
 
+          msg_desconexao.leaderId = -1;
+
           if (time.lider == membro.id) {
 
             console.log("Membro era lider");
 
-            // Busca novo líder e constrói a mensagem com o Id do novo líder
+            if (time.members.length > 1) {
+
+              // Busca novo líder e constrói a mensagem com o Id do novo líder
             
-            await this.#newLeader(time);
-            
-            msg_desconexao.leaderId = time.lider;
-            
+              await this.#newLeader(time);
+              
+              msg_desconexao.leaderId = time.lider;
+            }
           } else {
-            
             console.log("Membro não era lider");
-            
-            msg_desconexao.leaderId = -1;
-          
           }
 
           console.log(msg_desconexao);
@@ -933,9 +933,8 @@ class Handler_RSP extends Handler {
     // Atualiza o ranking 
 
     if (index == -1) {
-      console.log("Atualizando Ranking " + msg.teamId);
-      sessao.ranking.push({ idTeam: msg.teamId, point: msg.grpScore, gameTime: msg.gameTime, ranking: 0 });
-      await this.db.updateRanking(sessao);
+      var teamRanking = { idTeam: msg.teamId, point: msg.grpScore, gameTime: msg.gameTime, ranking: 0 };
+      await this.db.addTeamRanking(sessao._id, teamRanking);
     }
   }
 

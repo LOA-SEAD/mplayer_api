@@ -11,7 +11,7 @@ class DB_RSP extends DB{
         return super.updateOne("sessao", filter, newValues);
     }
     
-    gameInfo(session){ //Mantem informações gerais sobre o jogo
+    insertSession(session){ //Mantem informações gerais sobre o jogo
         return super.insert("sessao", session);
     } 
 
@@ -29,6 +29,12 @@ class DB_RSP extends DB{
     updateRanking(sessao){
         var filter = { _id: sessao._id };
         var newValues = { $set: { ranking: sessao.ranking} };
+        return super.updateOne("sessao", filter, newValues);
+    }
+
+    addTeamRanking(sessionId, teamRanking){
+        var filter = { _id: sessionId, ranking: { $nin: [ teamRanking ] } };
+        var newValues = { $push: { ranking: teamRanking } };
         return super.updateOne("sessao", filter, newValues);
     }
 
