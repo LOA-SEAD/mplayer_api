@@ -549,6 +549,7 @@ class Handler_RSP extends Handler {
         sessionId: msg.sessionId,
         gameId: msg.gameId,
         texto: msg.texto,
+        moderator: msg.moderator
       };
 
       super.multicast(wss, membersWs, mensagem); //informa todos os membros do time
@@ -752,6 +753,17 @@ class Handler_RSP extends Handler {
           var membersWs = time.members.map((item) => item.ws_id);
 
           super.multicast(wss, membersWs, msg_desconexao);
+
+          var mensagem = {
+            messageType: "MENSAGEM_CHAT",
+            user: { id: membro.id, name: membro.name },
+            teamId: time.idTeam,
+            sessionId: time.sessionId,
+            gameId: sessao.gameId,
+            texto: "EU SAI"
+          };
+
+          super.multicast(wss, membersWs, mensagem);
         
         } else {
           console.log("Membro era moderador - não foi retirado");
@@ -902,7 +914,8 @@ class Handler_RSP extends Handler {
 
       if (team.lastLeaders.length == team.members.length - 1) {
         // todos membros foram lideres
-        team.lastLeaders = []
+        // team.lastLeaders = []
+        team.lastLeaders.splice(0, team.lastLeaders)
       }
 
       await this.db.updateLastLeader(team);
