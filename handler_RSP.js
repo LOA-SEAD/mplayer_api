@@ -710,18 +710,6 @@ class Handler_RSP extends Handler {
 
         if (!membro.moderator) {
 
-          // Removendo membro
-
-          time.members.splice(index, 1);
-
-          // Atualizando time
-
-          filter = { _id: time._id };
-          var newValues = { $set: { members: time.members } };
-          this.db.updateTeam(filter, newValues);
-
-          time = await this.db.findOne("time", filter);
-
           var msg_desconexao = {
             messageType: "DESCONEXAO",
             user: membro,
@@ -736,7 +724,7 @@ class Handler_RSP extends Handler {
 
             console.log("Membro era lider");
 
-            if (time.members.length > 1) {
+            if (time.members.length > 2) {
 
               // Busca novo líder e constrói a mensagem com o Id do novo líder
             
@@ -750,17 +738,30 @@ class Handler_RSP extends Handler {
 
           console.log(msg_desconexao);
 
+          // Removendo membro
+
+          time.members.splice(index, 1);
+
+          // Atualizando time
+
+          filter = { _id: time._id };
+          var newValues = { $set: { members: time.members } };
+          this.db.updateTeam(filter, newValues);
+
+          time = await this.db.findOne("time", filter);
+
           var membersWs = time.members.map((item) => item.ws_id);
 
           super.multicast(wss, membersWs, msg_desconexao);
 
           var mensagem = {
             messageType: "MENSAGEM_CHAT",
-            user: { id: membro.id, name: membro.name },
+            user: { name: "<MENSAGEM DO SISTEMA>" },
             teamId: time.idTeam,
             sessionId: time.sessionId,
             gameId: sessao.gameId,
-            texto: "EU SAI"
+            texto: membro.name + " saiu do jogo",
+            moderator: true
           };
 
           super.multicast(wss, membersWs, mensagem);
@@ -914,8 +915,7 @@ class Handler_RSP extends Handler {
 
       if (team.lastLeaders.length == team.members.length - 1) {
         // todos membros foram lideres
-        // team.lastLeaders = []
-        team.lastLeaders.splice(0, team.lastLeaders)
+        team.lastLeaders.splice(0, team.lastLeaders.length);
       }
 
       await this.db.updateLastLeader(team);
