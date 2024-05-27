@@ -289,6 +289,7 @@ class Handler_RSP extends Handler {
             team: team[i].members,
             timeQuestion: session.timeQuestion,
             leaderId: team[i].lider,
+            help5050: session.nrHelp5050,
             sessionId: session.sessionId,
             gameId: session.gameId,
           };
@@ -728,8 +729,12 @@ class Handler_RSP extends Handler {
 
               // Busca novo líder e constrói a mensagem com o Id do novo líder
             
-              await this.#newLeader(time);
-              
+              do {
+                await this.#newLeader(time);
+                // o lider atual pode ser sorteado novamente (todos foram lideres)
+                // então solicita novamente a escolha de novo lider
+              } while (time.lider == membro.lider);
+
               msg_desconexao.leaderId = time.lider;
             }
           } else {
@@ -742,10 +747,20 @@ class Handler_RSP extends Handler {
 
           time.members.splice(index, 1);
 
+          // Removendo membro da lista de lideres (se ele foi lider em algum momento) 
+
+          var index2 = time.lastLeaders.findIndex(
+            (elemento) => elemento === membro.id
+          );
+
+          if (index2 != -1) {
+            time.lastLeaders.splice(index2, 1);
+          }
+
           // Atualizando time
 
           filter = { _id: time._id };
-          var newValues = { $set: { members: time.members } };
+          var newValues = { $set: { members: time.members, lastLeaders: time.lastLeaders} };
           this.db.updateTeam(filter, newValues);
 
           time = await this.db.findOne("time", filter);
@@ -928,7 +943,7 @@ class Handler_RSP extends Handler {
     do {
       // Math.floor(Math.random() * (team[i].members.length - 1)) + 1
       // Moderador faz parte do time => necessário removê-lo da lista de lideres  
-      var index = Math.floor(Math.random() * (team.members.length - 1));
+      var index = Math.floor(Math.random() * 104729) % (team.members.length - 1);
       newLeader = team.members[index + 1].id;
     } while (team.lastLeaders.includes(newLeader));
 
