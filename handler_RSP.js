@@ -55,73 +55,88 @@ class Handler_RSP extends Handler {
   handleCadastra(wss, ws, msg) {
 
     const cadastra = async () => {
-      var userId = await this.db.getNextSequenceValue("usuarios");
 
-      let moderator = { id: userId, name: msg.user.name };
+      // Checando o número de questões
 
-      this.db.insertUsuario(moderator);
-
-      var sessionId = await this.db.getNextSequenceValue("sessoes");
-
-      this.db.insertSession({
-        gameId: msg.gameId,
-        nrTeams: msg.nrTeams,
-        nrPlayers: msg.nrPlayers,
-        nrHelp5050: msg.nrHelp5050,
-        timeQuestion: msg.timeQuestion,
-        totalQuestion: msg.totalQuestion,
-        questionRaffle: msg.questionAmount,
-        moderator: moderator,
-        sessionId: sessionId,
-        endedGame: 0,
-        playersInGame: 0,
-        perguntas: [],
-        ranking: []
-      });
-
-      var idAndpasswords = [];
-
-      for (var i = 1; i <= msg.nrTeams; i++) {
-        var team = new Map();
-        team.set("id", i);
-        team.set("lider", -1);
-        // var password = Math.floor((1 + Math.random()) * 0x100000000)
-        //  .toString(16)
-        //  .substring(1);
-        var password = "senha" + i;
-        team.set("password", password);
-        team.set("members", []);
-        this.teams.push(team);
-        idAndpasswords.push({
-          id: team.get("id"),
-          secret: team.get("password"),
-        });
-        this.db.insertTeam({
-          idTeam: team.get("id"),
-          secret: team.get("password"),
-          sessionId: sessionId,
-          lider: 0, //atualizar no sorteio
-          used5050: 0,
-          lastLeaders: [],
-          members: [{ id: userId, name: msg.user.name, ws_id: ws.id, moderator: true }],
-          maxSize: msg.nrPlayers + 1, // + 1 => o moderador faz parte do time
-          grpScore: 0,
-          gameTime: 0,
-          endedGame: 0,
-          interaction: 0,
-          completed: false
-        });
+      var ok = true;
+      for (var i = 0; ok && i < 3; i++) {
+        ok = ok && msg.totalQuestion[i] > msg.questionAmount[i];
       }
 
-      var mensagem = {
-        messageType: "SESSAO_CRIADA",
-        //"gameId": msg.gameId,
-        teams: idAndpasswords,
-        sessionId: sessionId,
-        user: moderator
-      };
+      if (ok) { 
 
-      super.unicast(wss, ws.id, mensagem);
+        // Apenas cria sessão se o número de questoes ok
+        
+        var userId = await this.db.getNextSequenceValue("usuarios");
+
+        let moderator = { id: userId, name: msg.user.name };
+
+        this.db.insertUsuario(moderator);
+
+        var sessionId = await this.db.getNextSequenceValue("sessoes");
+
+        this.db.insertSession({
+          gameId: msg.gameId,
+          nrTeams: msg.nrTeams,
+          nrPlayers: msg.nrPlayers,
+          nrHelp5050: msg.nrHelp5050,
+          timeQuestion: msg.timeQuestion,
+          totalQuestion: msg.totalQuestion,
+          questionRaffle: msg.questionAmount,
+          moderator: moderator,
+          sessionId: sessionId,
+          endedGame: 0,
+          playersInGame: 0,
+          perguntas: [],
+          ranking: []
+        });
+
+        var idAndpasswords = [];
+
+        for (var i = 1; i <= msg.nrTeams; i++) {
+          var team = new Map();
+          team.set("id", i);
+          team.set("lider", -1);
+          // var password = Math.floor((1 + Math.random()) * 0x100000000)
+          //  .toString(16)
+          //  .substring(1);
+          var password = "senha" + i;
+          team.set("password", password);
+          team.set("members", []);
+          this.teams.push(team);
+          idAndpasswords.push({
+            id: team.get("id"),
+            secret: team.get("password"),
+          });
+          this.db.insertTeam({
+            idTeam: team.get("id"),
+            secret: team.get("password"),
+            sessionId: sessionId,
+            lider: 0, //atualizar no sorteio
+            used5050: 0,
+            lastLeaders: [],
+            members: [{ id: userId, name: msg.user.name, ws_id: ws.id, moderator: true }],
+            maxSize: msg.nrPlayers + 1, // + 1 => o moderador faz parte do time
+            grpScore: 0,
+            gameTime: 0,
+            endedGame: 0,
+            interaction: 0,
+            completed: false
+          });
+        }
+
+        var mensagem = {
+          messageType: "SESSAO_CRIADA",
+          //"gameId": msg.gameId,
+          teams: idAndpasswords,
+          sessionId: sessionId,
+          user: moderator
+        };
+
+        super.unicast(wss, ws.id, mensagem);
+      } else {
+        console.log("Sessão não criada - número de questões inválidas");
+      }
     };
 
     cadastra();
@@ -535,8 +550,10 @@ class Handler_RSP extends Handler {
 
       var membersWs;
       if (!this.times_ws_id.has(msg.teamId)) {
-        let team = await this.db.findOne("time", { sessionId: msg.sessionId, 
-          idTeam: msg.teamId }, {});
+        let team = await this.db.findOne("time", {
+          sessionId: msg.sessionId,
+          idTeam: msg.teamId
+        }, {});
         membersWs = team.members.map((item) => item.ws_id);
         this.times_ws_id.set(msg.teamId, membersWs);
       } else {
@@ -728,7 +745,7 @@ class Handler_RSP extends Handler {
             if (time.members.length > 2) {
 
               // Busca novo líder e constrói a mensagem com o Id do novo líder
-            
+
               do {
                 await this.#newLeader(time);
                 // o lider atual pode ser sorteado novamente (todos foram lideres)
@@ -760,7 +777,7 @@ class Handler_RSP extends Handler {
           // Atualizando time
 
           filter = { _id: time._id };
-          var newValues = { $set: { members: time.members, lastLeaders: time.lastLeaders} };
+          var newValues = { $set: { members: time.members, lastLeaders: time.lastLeaders } };
           this.db.updateTeam(filter, newValues);
 
           time = await this.db.findOne("time", filter);
@@ -780,7 +797,7 @@ class Handler_RSP extends Handler {
           };
 
           super.multicast(wss, membersWs, mensagem);
-        
+
         } else {
           console.log("Membro era moderador - não foi retirado");
         }
@@ -870,7 +887,7 @@ class Handler_RSP extends Handler {
 
   handleEncerrar(wss, ws, msg) {
     const sendMessage = async () => {
-   
+
       let msg_encerrar = {
         "messageType": "ENCERRAR",
         "sessionId": msg.sessionId,
@@ -885,14 +902,14 @@ class Handler_RSP extends Handler {
           players.push(teams[i].members[j]);
         }
       }
-  
+
       var playersWs = players.map(item => item.ws_id);
 
       super.multicast(wss, playersWs, msg_encerrar);
     };
     sendMessage();
 
-}
+  }
 
   handleDuvida(wss, ws, msg) {
     const sendMessage = async () => {
