@@ -365,6 +365,7 @@ class Handler_RSP extends Handler {
       else if (resposta === "B") newvalues = { $inc: { B: 1, answered: 1 } };
       else if (resposta === "C") newvalues = { $inc: { C: 1, answered: 1 } };
       else if (resposta === "D") newvalues = { $inc: { D: 1, answered: 1 } };
+      else newvalues = { $inc: { answered: 1 } };
 
       // Atualização dos valores
       await this.db.updateAnswers(filter, newvalues);
