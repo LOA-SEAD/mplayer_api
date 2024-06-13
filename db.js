@@ -1,10 +1,10 @@
 const mongo = require("mongodb");
 const mongoClient = mongo.MongoClient;
 
-const HOST = process.env.MONGODB_HOST;
-const USER = process.env.MONGODB_USER;
-const PASS = process.env.MONGODB_PASS;
-const DATABASE = process.env.MONGODB_DATABASE || "Responda_Se_Puder";
+const HOST = process.env.MONGO_INITDB_HOST;
+const USER = process.env.MONGO_INITDB_ROOT_USERNAME;
+const PASS = process.env.MONGO_INITDB_ROOT_PASSWORD;
+const DATABASE = process.env.MONGO_INITDB_DATABASE || "Responda_Se_Puder";
 
 class DB {
     constructor() {
