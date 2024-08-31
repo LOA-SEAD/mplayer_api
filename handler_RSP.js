@@ -28,10 +28,10 @@ class Handler_RSP extends Handler {
       this.handleAskForHelp(wss, ws, msg);
     else if (msg.messageType == "RESPOSTA_FINAL")
       this.handleFinalAnswer(wss, ws, msg);
-    else if (msg.messageType == "PROXIMA_QUESTAO")
-      this.handleNextQuestion(wss, ws, msg);
     else if (msg.messageType == "PROXIMA_FASE")
       this.handleNextFase(wss, ws, msg);
+    else if (msg.messageType == "PROXIMA_QUESTAO")
+      this.handleNextQuestion(wss, ws, msg);
     else if (msg.messageType == "AVALIACAO") {
       const avaliacao = async () => {
         await this.handleElogios(wss, ws, msg);
@@ -326,6 +326,8 @@ class Handler_RSP extends Handler {
             leaderId: team[i].lider,
             sessionId: session.sessionId,
             gameId: session.gameId,
+            pulou_na_fase: false,
+            entrou_nova_fase: false,
           };
           super.multicast(wss, membersWsIds[i], mensagem);
         }
@@ -490,6 +492,8 @@ class Handler_RSP extends Handler {
         }
         else {
           await this.db.updateSkip(team);
+          msg.pulou_na_fase = true;
+          msg.entrou_nova_fase = false;
           this.handleNextQuestion(wss, ws, msg);
         }
       }
@@ -615,13 +619,15 @@ class Handler_RSP extends Handler {
       var ordemQuestoes = [0, 1, 2, 3];
       ordemQuestoes = this.#shuffleArray(ordemQuestoes);
       var mensagem = {
-        "messageType": "NOVA_QUESTAO",
-        "teamId": msg.teamId,
-        "alternativas": ordemQuestoes,
-        "sessionId": msg.sessionId,
-        "gameId": msg.gameId,
+        messageType: "NOVA_QUESTAO",
+        teamId: msg.teamId,
+        alternativas: ordemQuestoes,
+        sessionId: msg.sessionId,
+        gameId: msg.gameId,
+        pulou_na_fase: msg.pulou_na_fase,
+        entrou_nova_fase: msg.entrou_nova_fase,
       }
-
+        
       super.multicast(wss, membersWs, mensagem); // informa todos os membros do time
     };
 
