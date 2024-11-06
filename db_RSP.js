@@ -142,10 +142,15 @@ class DB_RSP extends DB{
     }
     
     // Operações na coleção resposta
-    async updateAnswers(filter,newValues){
+    // TODO Uniformizar as 2 funções em uma única função
+    
+    async updateAnswers(filter, newValues){ 
         return await super.updateOne("resposta", filter, newValues);
     }
 
+    async updateFinalAnswers(filter,newValues){
+        return await super.updateOne("respostaFinal", filter, newValues);
+    }
 
     async updateTeam(filter,newValues){
         return await super.updateOne("time", filter, newValues);
@@ -159,6 +164,10 @@ class DB_RSP extends DB{
 
     insertAnswers(answer){ 
         return super.insert("resposta", answer);
+    }
+
+    insertFinalAnswers(answer){ 
+        return super.insert("respostaFinal", answer);
     }
 }
 module.exports = DB_RSP;

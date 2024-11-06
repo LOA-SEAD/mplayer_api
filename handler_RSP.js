@@ -24,6 +24,8 @@ class Handler_RSP extends Handler {
       this.handleStart(wss, ws, msg);
     else if (msg.messageType == "RESPOSTA_INDIVIDUAL")
       this.handleIndividualMoment(wss, ws, msg);
+    else if (msg.messageType == "MOMENTO_VOTACAO")
+      this.handleMomentoVotacao(wss, ws, msg);
     else if (msg.messageType == "PEDIR_AJUDA")
       this.handleAskForHelp(wss, ws, msg);
     else if (msg.messageType == "RESPOSTA_FINAL")
@@ -116,6 +118,7 @@ class Handler_RSP extends Handler {
             used5050: 0,
             lastLeaders: [],
             members: [{ id: userId, name: msg.user.name, ws_id: ws.id, moderator: true }],
+            possibleLeaders: [],
             maxSize: msg.nrPlayers + 1, // + 1 => o moderador faz parte do time
             grpScore: 0,
             gameTime: 0,
@@ -180,11 +183,19 @@ class Handler_RSP extends Handler {
           };
           this.db.insertUsuario(user);
 
-          team.members.push({ id: userId, name: msg.user.name, ws_id: ws.id, indScore: 0 });
+          var userTeam = { id: userId, name: msg.user.name, ws_id: ws.id, 
+            indScore: 0, rejectLeadership: msg.user.rejectLeadership 
+          };
+          team.members.push(userTeam);
+
+          if (!msg.user.rejectLeadership) {
+            team.possibleLeaders.push(userTeam);
+          }
+          
           var members2 = team.members.map((item) => item.ws_id);
 
           var filter = { _id: team._id };
-          var newValues = { $set: { members: team.members } };
+          var newValues = { $set: { members: team.members, possibleLeaders: team.possibleLeaders } };
           this.db.updateTeam(filter, newValues);
 
           var session = await this.db.findOne(
@@ -248,7 +259,8 @@ class Handler_RSP extends Handler {
           S.add(numero);
           // Cria um registro para cada pergunta
           for (j = 1; j <= session.nrTeams; j++) {
-            // Contador de membros do time que responderam
+            // Contador de membros do time que responderam (1a fase)
+            
             this.db.insertAnswers({
               sessionId: msg.sessionId,
               fase: i,
@@ -261,7 +273,23 @@ class Handler_RSP extends Handler {
               B: 0,
               C: 0,
               D: 0
-            })
+            });
+
+            // Contador de membros do time que responderam (fase final)
+            
+            this.db.insertFinalAnswers({
+              sessionId: msg.sessionId,
+              fase: i,
+              question: numero,
+              idTeam: j,
+              ordemQuestoes: [0, 1, 2, 3],
+              completed: false,
+              answered: 0,
+              A: 0,
+              B: 0,
+              C: 0,
+              D: 0
+            });
           }
         }
 
@@ -360,7 +388,6 @@ class Handler_RSP extends Handler {
       const resposta = msg.answer;
       var filter = { _id: answers._id };
       var newvalues;
-
       // Incrementa a contagem de respostas e alternativas
 
       if (resposta === "A") newvalues = { $inc: { A: 1, answered: 1 } };
@@ -506,6 +533,145 @@ class Handler_RSP extends Handler {
 
   handleFinalAnswer(wss, ws, msg) {
 
+    const answer = async () => {
+
+      var answers = await this.db.findOne(
+        "respostaFinal",
+        {
+          sessionId: msg.sessionId,
+          question: msg.nrQuestion,
+          fase: msg.level,
+          idTeam: msg.teamId,
+        },
+        {}
+      );
+
+      const resposta = msg.finalAnswer;
+      var filter = { _id: answers._id };
+      var newvalues;
+
+      // Incrementa a contagem de respostas e alternativas
+
+      if (resposta === "A") newvalues = { $inc: { A: 1, answered: 1 } };
+      else if (resposta === "B") newvalues = { $inc: { B: 1, answered: 1 } };
+      else if (resposta === "C") newvalues = { $inc: { C: 1, answered: 1 } };
+      else if (resposta === "D") newvalues = { $inc: { D: 1, answered: 1 } };
+      else newvalues = { $inc: { answered: 1 } };
+
+      if (msg.isLeader) {
+        newvalues["$set"] = { leaderAnswer: resposta };
+      }
+
+      // Atualização dos valores
+
+      await this.db.updateFinalAnswers(filter, newvalues);
+
+      answers = await this.db.findOne(
+        "respostaFinal",
+        {
+          sessionId: msg.sessionId,
+          question: msg.nrQuestion,
+          fase: msg.level,
+          idTeam: msg.teamId,
+        },
+        {}
+      );
+
+      // console.log("[" + msg.teamId + "] answers.completed = " + answers.completed);
+      // console.log("[" + msg.teamId + "] answers.answered = " + answers.answered);
+      // console.log("[" + msg.teamId + "] team.members.length = " + team.members.length);
+
+      var team = await this.db.findOne(
+        "time",
+        { sessionId: msg.sessionId, idTeam: msg.teamId },
+        {}
+      );
+
+      // Quando todos os membros de um time responderem
+
+      if (answers.answered == (team.members.length - 1)) {
+        
+        var answerList = [];
+        answerList.push({ "alternativa": "A", "contador": answers.A });
+        answerList.push({ "alternativa": "B", "contador": answers.B });
+        answerList.push({ "alternativa": "C", "contador": answers.C });
+        answerList.push({ "alternativa": "D", "contador": answers.D });
+        
+        answerList.sort(function(a,b){
+          return b.contador - a.contador;
+        });
+
+        var respostaFinal;
+        const empatados = [answerList[0]];
+        var i = 1;
+
+        while (i < 4 && answerList[i].contador === answerList[0].contador) {
+          empatados.push(answerList[i]);
+          i++;
+        }
+
+        if (empatados.length === 1) {
+          // Não houve empate
+          respostaFinal = answerList[0].alternativa;  
+        } else {
+
+          // Houve empate 
+          
+          var pos = empatados.findIndex(
+            (elemento) => elemento.alternativa === answers.leaderAnswer
+          );
+    
+          if (pos !== -1) {
+            // O lider votou em uma das opções empatadas
+            // Considerar o voto do lider como vencedor 
+            respostaFinal = answers.leaderAnswer;
+          } else {
+            // O lider não votou em uma das opções empatadas
+            // discutir esse caso 
+            // por enquanto, sorteio dos empatados
+
+            var index = Math.floor(Math.random() * 104729) % (empatados.length);
+
+            respostaFinal = answerList[index].alternativa;
+          }
+        }
+        
+        var mensagem = {
+          messageType: "FINAL_QUESTAO",
+          teamId: msg.teamId,
+          sessionId: msg.sessionId,
+          gameId: msg.gameId,
+          finalAnswer: respostaFinal,
+          correct: (respostaFinal === msg.correct),
+          tie: (empatados.length !== 1), 
+          interaction: msg.interaction,
+        };
+
+        // Apenas envia se a mensagem não foi enviada
+
+        if (!answers.completed) {
+          newvalues = { $set: { completed: true } };
+          await this.db.updateAnswers(filter, newvalues);
+
+          let membersWs = team.members.map((item) => item.ws_id);
+
+          // manda a mensagem para todos os membros do time
+          super.multicast(wss, membersWs, mensagem);
+        }
+      } else {
+        mensagem = {
+          messageType: "ESPERANDO_MEMBROS",
+          teamId: msg.teamId
+        };
+        super.unicast(wss, ws.id, mensagem);
+      }
+    };
+
+    answer();
+  }
+
+  /* handleFinalAnswer(wss, ws, msg) {
+
     const findTeam = async () => {
 
       const user = await this.db.findOne(
@@ -517,11 +683,11 @@ class Handler_RSP extends Handler {
         {}
       );
 
-      /* 
-       * TODO Perguntar ao Antonio.. interaction não está sendo enviado na mensagem
-       * Por enquanto, será utilizado o id do usuário
-       * Para testar a ordenação dos membros do mesmo grupo 
-       */
+      // 
+      // TODO Perguntar ao Antonio.. interaction não está sendo enviado na mensagem
+      // Por enquanto, será utilizado o id do usuário
+      // Para testar a ordenação dos membros do mesmo grupo 
+      //
 
       user.interaction = msg.user.id;
       await this.db.updateInteraction(user);
@@ -548,7 +714,7 @@ class Handler_RSP extends Handler {
     };
 
     findTeam();
-  }
+  }*/
 
   handleChat(wss, ws, msg) {
     const findTeam = async () => {
@@ -576,6 +742,36 @@ class Handler_RSP extends Handler {
       };
 
       super.multicast(wss, membersWs, mensagem); //informa todos os membros do time
+    };
+    findTeam();
+  }
+
+  handleMomentoVotacao(wss, ws, msg) {
+    const findTeam = async () => {
+
+      var membersWs;
+      if (!this.times_ws_id.has(msg.teamId)) {
+        let team = await this.db.findOne("time", {
+          sessionId: msg.sessionId,
+          idTeam: msg.teamId
+        }, {});
+        membersWs = team.members.map((item) => item.ws_id);
+        this.times_ws_id.set(msg.teamId, membersWs);
+      } else {
+        membersWs = this.times_ws_id.get(msg.teamId);
+      }
+
+      var mensagem = {
+        messageType: "MOMENTO_VOTACAO",
+        user: { id: msg.user.id, name: msg.user.name },
+        teamId: msg.teamId,
+        sessionId: msg.sessionId,
+        gameId: msg.gameId,
+        level: msg.level,
+        nrQuestion: msg.nrQuestion 
+      };
+
+      super.multicast(wss, membersWs, mensagem); // Informa todos os membros do time
     };
     findTeam();
   }
@@ -952,7 +1148,7 @@ class Handler_RSP extends Handler {
     if (team.lider != 0) {
       team.lastLeaders.push(team.lider);
 
-      if (team.lastLeaders.length == team.members.length - 1) {
+      if (team.lastLeaders.length == team.possibleLeaders.length) {
         // todos membros foram lideres
         team.lastLeaders.splice(0, team.lastLeaders.length);
       }
@@ -964,11 +1160,9 @@ class Handler_RSP extends Handler {
 
     // não repetir o lider
 
-    do {
-      // Math.floor(Math.random() * (team[i].members.length - 1)) + 1
-      // Moderador faz parte do time => necessário removê-lo da lista de lideres  
-      var index = Math.floor(Math.random() * 104729) % (team.members.length - 1);
-      newLeader = team.members[index + 1].id;
+    do {  
+      var index = Math.floor(Math.random() * 104729) % (team.possibleLeaders.length);
+      newLeader = team.possibleLeaders[index].id;
     } while (team.lastLeaders.includes(newLeader));
 
     team.lider = newLeader;
