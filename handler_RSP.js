@@ -645,6 +645,12 @@ class Handler_RSP extends Handler {
           correct: (respostaFinal === msg.correct),
           tie: (empatados.length !== 1), 
           interaction: msg.interaction,
+          answers: {
+            A: answers.A,
+            B: answers.B,
+            C: answers.C,
+            D: answers.D,
+          },
         };
 
         // Apenas envia se a mensagem não foi enviada
