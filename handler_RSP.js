@@ -179,7 +179,8 @@ class Handler_RSP extends Handler {
             elogio2: 0,
             elogio3: 0,
             sessionId: sessionId,
-            ws_id: ws.id
+            ws_id: ws.id,
+            rejectLeadership: msg.user.rejectLeadership
           };
           this.db.insertUsuario(user);
 
@@ -210,7 +211,7 @@ class Handler_RSP extends Handler {
 
           var mensagem = {
             messageType: "ENTROU_SESSAO",
-            user: { id: user.id, name: user.name },
+            user: { id: user.id, name: user.name, rejectLeadership: user.rejectLeadership },
             teamId: team.idTeam,
             sessionId: sessionId,
             gameId: session.gameId
@@ -590,82 +591,9 @@ class Handler_RSP extends Handler {
       // Quando todos os membros de um time responderem
 
       if (answers.answered == (team.members.length - 1)) {
-        
-        var answerList = [];
-        answerList.push({ "alternativa": "A", "contador": answers.A });
-        answerList.push({ "alternativa": "B", "contador": answers.B });
-        answerList.push({ "alternativa": "C", "contador": answers.C });
-        answerList.push({ "alternativa": "D", "contador": answers.D });
-        
-        answerList.sort(function(a,b){
-          return b.contador - a.contador;
-        });
-
-        var respostaFinal;
-        const empatados = [answerList[0]];
-        var i = 1;
-
-        while (i < 4 && answerList[i].contador === answerList[0].contador) {
-          empatados.push(answerList[i]);
-          i++;
-        }
-
-        if (empatados.length === 1) {
-          // Não houve empate
-          respostaFinal = answerList[0].alternativa;  
-        } else {
-
-          // Houve empate 
-          
-          var pos = empatados.findIndex(
-            (elemento) => elemento.alternativa === answers.leaderAnswer
-          );
-    
-          if (pos !== -1) {
-            // O lider votou em uma das opções empatadas
-            // Considerar o voto do lider como vencedor 
-            respostaFinal = answers.leaderAnswer;
-          } else {
-            // O lider não votou em uma das opções empatadas
-            // discutir esse caso 
-            // por enquanto, sorteio dos empatados
-
-            var index = Math.floor(Math.random() * 104729) % (empatados.length);
-
-            respostaFinal = answerList[index].alternativa;
-          }
-        }
-        
-        var mensagem = {
-          messageType: "FINAL_QUESTAO",
-          teamId: msg.teamId,
-          sessionId: msg.sessionId,
-          gameId: msg.gameId,
-          finalAnswer: respostaFinal,
-          correct: (respostaFinal === msg.correct),
-          tie: (empatados.length !== 1), 
-          interaction: msg.interaction,
-          answers: {
-            A: answers.A,
-            B: answers.B,
-            C: answers.C,
-            D: answers.D,
-          },
-        };
-
-        // Apenas envia se a mensagem não foi enviada
-
-        if (!answers.completed) {
-          newvalues = { $set: { completed: true } };
-          await this.db.updateAnswers(filter, newvalues);
-
-          let membersWs = team.members.map((item) => item.ws_id);
-
-          // manda a mensagem para todos os membros do time
-          super.multicast(wss, membersWs, mensagem);
-        }
+        await this.#sendRespostaFinal(wss, msg, team, answers);
       } else {
-        mensagem = {
+        var mensagem = {
           messageType: "ESPERANDO_MEMBROS",
           teamId: msg.teamId
         };
@@ -1219,6 +1147,95 @@ class Handler_RSP extends Handler {
     // Atualização das variáveis
 
     await this.db.updateRanking(sessao);
+  }
+
+  async #sendRespostaFinal(wss, msg, team, answers) {
+
+    var answerList = [];
+    answerList.push({ "alternativa": "A", "contador": answers.A });
+    answerList.push({ "alternativa": "B", "contador": answers.B });
+    answerList.push({ "alternativa": "C", "contador": answers.C });
+    answerList.push({ "alternativa": "D", "contador": answers.D });
+
+    answerList.sort(function (a, b) {
+      return b.contador - a.contador;
+    });
+
+    var respostaFinal;
+    const empatados = [answerList[0]];
+    var i = 1;
+
+    while (i < 4 && answerList[i].contador === answerList[0].contador) {
+      empatados.push(answerList[i]);
+      i++;
+    }
+
+    if (empatados.length === 1) {
+      // Não houve empate
+      respostaFinal = answerList[0].alternativa;
+    } else {
+
+      // Houve empate 
+
+      var pos = empatados.findIndex(
+        (elemento) => elemento.alternativa === answers.leaderAnswer
+      );
+
+      if (pos !== -1) {
+        // O lider votou em uma das opções empatadas
+        // Considerar o voto do lider como vencedor 
+        respostaFinal = answers.leaderAnswer;
+      } else {
+        // O lider não votou em uma das opções empatadas
+        // discutir esse caso 
+        // por enquanto, sorteio dos empatados
+
+        var index = Math.floor(Math.random() * 104729) % (empatados.length);
+
+        respostaFinal = answerList[index].alternativa;
+      }
+    }
+
+    var mensagem = {
+      messageType: "FINAL_QUESTAO",
+      teamId: msg.teamId,
+      sessionId: msg.sessionId,
+      gameId: msg.gameId,
+      finalAnswer: respostaFinal,
+      correct: (respostaFinal === msg.correct),
+      tie: (empatados.length !== 1),
+      interaction: msg.interaction,
+      answers: {
+        A: answers.A,
+        B: answers.B,
+        C: answers.C,
+        D: answers.D,
+      },
+    };
+
+    answers = await this.db.findOne(
+      "respostaFinal",
+      {
+        sessionId: msg.sessionId,
+        question: msg.nrQuestion,
+        fase: msg.level,
+        idTeam: msg.teamId,
+      },
+      {}
+    );
+
+    // Apenas envia se a mensagem não foi enviada
+
+    if (!answers.completed) {
+      var filter = { _id: answers._id };
+      var newvalues = { $set: { completed: true } };
+      await this.db.updateFinalAnswers(filter, newvalues);
+
+      let membersWs = team.members.map((item) => item.ws_id);
+
+      // manda a mensagem para todos os membros do time
+      super.multicast(wss, membersWs, mensagem);
+    }
   }
 
   async #sendClassificacao(wss, msg, team) {
