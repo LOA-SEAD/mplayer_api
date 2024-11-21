@@ -238,7 +238,7 @@ class Handler_RSP extends Handler {
 
     findIdsAndPasswords(msg);
   }
-
+  
   handleStart(wss, ws, msg) {
 
     var numero;
@@ -358,7 +358,12 @@ class Handler_RSP extends Handler {
             pulou_na_fase: false,
             entrou_nova_fase: false,
           };
+          console.log("membersWsIds[" + i + "] =>" + membersWsIds[i]);
+
           super.multicast(wss, membersWsIds[i], mensagem);
+
+          await this.#sleep(5000).then(() => { console.log('Waited 5 seconds'); });     
+
         }
 
         // Adicionando o time no HashMap (para acelerar o envio de multicast)
@@ -1068,6 +1073,10 @@ class Handler_RSP extends Handler {
   }
 
   // Métodos privados
+
+  #sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
   #shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
