@@ -362,7 +362,7 @@ class Handler_RSP extends Handler {
 
           super.multicast(wss, membersWsIds[i], mensagem);
 
-          await this.#sleep(5000).then(() => { console.log('Waited 5 seconds'); });     
+          await this.#sleep(2000).then(() => { console.log('Waited 2 seconds'); });     
 
         }
 
@@ -1005,7 +1005,11 @@ class Handler_RSP extends Handler {
         }
       }
 
+      user = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.user.id }, {});
+
       // Envia mensagem para retorno de avaliação
+
+      user = await this.db.findOne("usuario", { sessionId: msg.sessionId, id: msg.user.id }, {});
 
       let received = [];
       received.push({
